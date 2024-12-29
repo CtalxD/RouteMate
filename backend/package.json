@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "app.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon app.js"
-  },
+"scripts": {
+  "gen": "npx prisma generate",
+  "push": "npx prisma db push",
+  "migrate": "npx prisma migrate dev",
+  "start": "nodemon app.js"
+},
   "author": "",
   "license": "ISC",
   "dependencies": {
