@@ -29,3 +29,12 @@ export interface ErrorResponse {
   error: true;
   msg: string;
 }
+
+
+export type ForgotPasswordFormData = {
+  email: string;
+};
+
+export interface ForgotPasswordResponse {
+  password: string;
+}
