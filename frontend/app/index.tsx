@@ -16,7 +16,7 @@ const Home = () => {
     if (!isMounted) return;
 
     if (authState.authenticated) {
-      router.push('/lists');
+      router.push('/(tabs)/lists');
     } else {
       router.push('/(auth)/sign-in');
     }

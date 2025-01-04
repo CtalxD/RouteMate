@@ -37,11 +37,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (data: LoginFormData): Promise<LoginResponse | ErrorResponse> => {
     try {
       const result = await api.post(`${API_URL}/login`, data);
-
-      await secureStore.setItem(ACCESS_TOKEN_KEY, result.data.accessToken);
+      await secureStore.setItem(ACCESS_TOKEN_KEY, result.data.token);
       await secureStore.setItem(REFRESH_TOKEN_KEY, result.data.refreshToken);
-      axios.defaults.headers.common.Authorization = `Bearer ${result.data.accessToken}`;
-      setAuthState({ authenticated: true, token: result.data.accessToken });
+      axios.defaults.headers.common.Authorization = `Bearer ${result.data.token}`;
+      setAuthState({ authenticated: true, token: result.data.token });
 
       return result.data;
     } catch (e) {
