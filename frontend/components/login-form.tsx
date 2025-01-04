@@ -34,7 +34,9 @@ const LoginForm = () => {
   return (
     <View style={styles.container}>
       <Text variant="headlineMedium" style={styles.title}>RouteMate</Text>
-      <Text style={styles.subtitle}>Track Your Ride, Anywhere, Anytime.</Text>
+      <Text style={styles.trackRide}>Track Your Ride,</Text>
+      <Text style={styles.anywhere}>Anywhere,</Text>
+      <Text style={styles.anytime}>Anytime.</Text>
 
       <Text variant="titleMedium" style={styles.loginTitle}>Login</Text>
 
@@ -83,8 +85,6 @@ const LoginForm = () => {
       />
       {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-      <Link style={styles.forgotPassword} href="/(auth)/sign-up">
-Register a new user      </Link>
       <Link style={styles.forgotPassword} href="/(auth)/forgot-password">
         Forgot Password
       </Link>
@@ -95,15 +95,9 @@ Register a new user      </Link>
 
       <Text style={styles.orText}>or</Text>
 
-      <Button
-        mode="contained"
-        icon="google"
-        buttonColor={COLORS.light.primary}
-        textColor={COLORS.light.background}
-        style={styles.googleButton}
-      >
-        SignUp with Google
-      </Button>
+      <Link style={styles.registerLink} href="/(auth)/sign-up">
+        Register a new user
+      </Link>
     </View>
   );
 };
@@ -115,46 +109,125 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
+
   title: {
+    fontFamily: '',
+    fontSize: 43,
     fontWeight: 'bold',
+    color: '#082A3F',
     textAlign: 'center',
     marginBottom: 4,
-    color: COLORS.dark.text,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
-  subtitle: {
+
+  trackRide: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#DB2955',
     textAlign: 'center',
-    marginBottom: 20,
-    color: COLORS.light.primary,
+    marginBottom: 2,
+    marginLeft:-22,
+    marginRight: 15,
+    marginTop: 1,
+    paddingBottom: 1,
+    paddingTop: 1,
   },
+
+  anywhere: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#DB2955',
+    textAlign: 'center',
+    marginBottom: 2,
+    marginLeft:-96,
+    marginRight: 15,
+    marginTop: 2,
+    paddingTop: 1,
+    paddingBottom: 1,
+  },
+
+  anytime: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#DB2955',
+    textAlign: 'center',
+    marginBottom: 2,
+    marginLeft:-115,
+    marginRight: 15,
+    marginTop: 2,
+    paddingTop: 1,
+    paddingBottom: 20,
+  },
+
   loginTitle: {
-    marginBottom: 16,
-    fontWeight: '600',
+    fontFamily: '',
+    fontSize: 24,
+    color: '#082A3F',
+    fontWeight: 'bold',
+    marginBottom: 20,
+    paddingTop: 30,
   },
+
   input: {
-    marginBottom: 12,
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#808080',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginVertical: 8,
+    fontSize: 16,
+    color: '#000',
   },
+
   errorText: {
     color: 'red',
     fontSize: 12,
     marginBottom: 8,
   },
+
   forgotPassword: {
-    textAlign: 'right',
-    marginBottom: 16,
-    color: COLORS.light.primary,
+    alignSelf: 'flex-end',
+    color: '#082A3F',
+    marginTop: 5,
+    textDecorationLine: 'underline',
   },
+
   loginButton: {
     marginBottom: 16,
-    backgroundColor: COLORS.light?.error,
+    backgroundColor: '#082A3F',
+    height: 45,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignSelf: 'center', // Centering the button horizontally
+    width: '60%', // You can adjust the width if needed
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 20,
   },
+  
   orText: {
+    fontSize: 20,
     textAlign: 'center',
     marginBottom: 16,
-    color: COLORS.dark.text,
+    color: '#808080',
   },
-  googleButton: {
+  
+  registerLink: {
+    marginBottom: 16,
+    backgroundColor: '#DB2955',
+    height: 45,
     borderRadius: 8,
+    justifyContent: 'center',
+    alignSelf: 'center', 
+    width: '60%',
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 20,
   },
+  
+  
 });
 
 export default LoginForm;
