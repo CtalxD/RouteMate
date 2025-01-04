@@ -7,7 +7,7 @@
   "gen": "npx prisma generate",
   "push": "npx prisma db push",
   "migrate": "npx prisma migrate dev",
-  "start": "nodemon app.js"
+  "start": "node --watch app.js"
 },
   "author": "",
   "license": "ISC",

@@ -4,6 +4,7 @@ const userRoutes = require("./routes/userRouter");
 const cookieParser = require("cookie-parser");
 const { config } = require("./config");
 const cors = require("cors");
+const prisma = require("./prisma/prisma");
 
 
 app.use(cookieParser());
