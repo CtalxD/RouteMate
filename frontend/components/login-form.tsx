@@ -89,12 +89,16 @@ const LoginForm = () => {
         Forgot Password
       </Link>
 
-      <Button mode="contained" onPress={handleSubmit(onSubmit)} style={styles.loginButton}>
-        Login
-      </Button>
+      <Button
+        mode="contained"
+        onPress={handleSubmit(onSubmit)}
+        style={[styles.loginButton, { paddingHorizontal: 0 }]}
+        labelStyle={styles.loginButtonText} // Apply text styles here
+>
+  Login
+</Button>
 
       <Text style={styles.orText}>or</Text>
-
       <Link style={styles.registerLink} href="/(auth)/sign-up">
         Register a new user
       </Link>
@@ -127,7 +131,7 @@ const styles = StyleSheet.create({
     color: '#DB2955',
     textAlign: 'center',
     marginBottom: 2,
-    marginLeft:-22,
+    marginLeft: -22,
     marginRight: 15,
     marginTop: 1,
     paddingBottom: 1,
@@ -140,9 +144,9 @@ const styles = StyleSheet.create({
     color: '#DB2955',
     textAlign: 'center',
     marginBottom: 2,
-    marginLeft:-96,
+    marginLeft: -96,
     marginRight: 15,
-    marginTop: 2,
+    marginTop: 1,
     paddingTop: 1,
     paddingBottom: 1,
   },
@@ -153,7 +157,7 @@ const styles = StyleSheet.create({
     color: '#DB2955',
     textAlign: 'center',
     marginBottom: 2,
-    marginLeft:-115,
+    marginLeft: -115,
     marginRight: 15,
     marginTop: 2,
     paddingTop: 1,
@@ -165,7 +169,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#082A3F',
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
     paddingTop: 30,
   },
 
@@ -190,7 +194,8 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignSelf: 'flex-end',
     color: '#082A3F',
-    marginTop: 5,
+    marginTop: -10,
+    marginBottom: 12,
     textDecorationLine: 'underline',
   },
 
@@ -200,17 +205,25 @@ const styles = StyleSheet.create({
     height: 45,
     borderRadius: 8,
     justifyContent: 'center',
-    alignSelf: 'center', // Centering the button horizontally
-    width: '60%', // You can adjust the width if needed
-    paddingVertical: 12,
+    alignSelf: 'center',
+    width: '60%', 
+    paddingVertical: 0, 
     alignItems: 'center',
     marginTop: 20,
   },
+
+  loginButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold', 
+    color: '#fff', 
+  },
+
   
   orText: {
     fontSize: 20,
     textAlign: 'center',
-    marginBottom: 16,
+    marginTop: 5,
+    marginBottom: 5,
     color: '#808080',
   },
   
@@ -220,14 +233,16 @@ const styles = StyleSheet.create({
     height: 45,
     borderRadius: 8,
     justifyContent: 'center',
-    alignSelf: 'center', 
+    alignSelf: 'center',
     width: '60%',
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 20,
+    textAlign: 'center', 
+    color: '#fff', 
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  
-  
 });
-
+  
 export default LoginForm;
