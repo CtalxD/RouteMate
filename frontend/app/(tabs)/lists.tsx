@@ -4,6 +4,7 @@ import { useAuth } from '@/context/auth-context'; // Adjust the import path as n
 
 const Lists = () => {
   const [menuVisible, setMenuVisible] = useState(false);
+  const [isDriverMode, setIsDriverMode] = useState(false);
   const { onLogout } = useAuth();
 
   const toggleMenu = () => {
@@ -13,6 +14,16 @@ const Lists = () => {
   const handleLogout = () => {
     setMenuVisible(false);
     onLogout();
+  };
+
+  const switchToDriverMode = () => {
+    setIsDriverMode(true);
+    setMenuVisible(false);
+  };
+
+  const switchToPassengerMode = () => {
+    setIsDriverMode(false);
+    setMenuVisible(false);
   };
 
   return (
@@ -61,6 +72,16 @@ const Lists = () => {
           <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
             <Text style={styles.menuText}>Logout</Text>
           </TouchableOpacity>
+          {/* Switch Mode Button */}
+          {isDriverMode ? (
+            <TouchableOpacity onPress={switchToPassengerMode} style={styles.switchModeButton}>
+              <Text style={styles.switchModeText}>Switch to Passenger Mode</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={switchToDriverMode} style={styles.switchModeButton}>
+              <Text style={styles.switchModeText}>Switch to Driver Mode</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </Modal>
     </View>
@@ -76,11 +97,12 @@ const styles = StyleSheet.create({
   },
   hamburgerButton: {
     padding: 10,
+    backgroundColor: '#082A3F', // Hamburger button color
   },
   bar: {
     height: 4,
     width: 30,
-    backgroundColor: 'black',
+    backgroundColor: 'white', // Bars color
     marginVertical: 3,
     borderRadius: 2,
   },
@@ -94,7 +116,7 @@ const styles = StyleSheet.create({
     left: 0,
     width: 250,
     height: '100%',
-    backgroundColor: 'white',
+    backgroundColor: '#082A3F', // Menu background color
     padding: 20,
     elevation: 5,
   },
@@ -124,17 +146,31 @@ const styles = StyleSheet.create({
   },
   profileText: {
     fontSize: 18,
-    color: 'black',
+    color: 'white', // White text for profile
   },
   menuItem: {
     marginVertical: 10,
     padding: 10,
     borderRadius: 4,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#082A3F', // Background for menu items
   },
   menuText: {
     fontSize: 16,
-    color: 'black',
+    color: 'white', // White text for menu items
+  },
+  switchModeButton: {
+    marginTop: 'auto',
+    marginVertical: 10,
+    padding: 10,
+    borderRadius: 4,
+    backgroundColor: '#DB2955', // Background color for Switch Mode button
+    borderWidth: 2,
+    borderColor: '#DB2955', // Border around the button
+  },
+  switchModeText: {
+    fontSize: 16,
+    color: 'white', // White text for Switch Mode button
+    textAlign: 'center',
   },
 });
 
