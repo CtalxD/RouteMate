@@ -56,7 +56,7 @@ const RegisterForm = () => {
       <Text style={styles.anytime}>Anytime.</Text>
 
       {/* Styled Register Form Text */}
-      <Text style={styles.registerFormText}>Register Form</Text>
+      <Text style={styles.registerFormText}>Signup</Text>
 
       <Controller
         control={control}
@@ -104,7 +104,7 @@ const RegisterForm = () => {
       {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
       <Button disabled={isPending} onPress={handleSubmit(onSubmit)} style={styles.registerButton} labelStyle={styles.buttonLabel}>
-        Register
+        Signup
       </Button>
 
       <Text style={styles.orText}>or</Text>

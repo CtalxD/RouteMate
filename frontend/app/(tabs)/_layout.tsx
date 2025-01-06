@@ -1,26 +1,11 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
 
-const TabsLayout = () => {
+const TabLayout = () => {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#3498db',
-        tabBarInactiveTintColor: '#7f8c8d',
-      }}>
-      <Tabs.Screen
-        name="lists"
-        options={{
-          title: 'Home',
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" color={color} size={size} />
-          ),
-        }}
-      />
-
-    </Tabs>
+    <Stack>
+      <Stack.Screen name="lists" options={{ headerShown: false }} />
+    </Stack>
   );
 };
 
-export default TabsLayout;
+export default TabLayout;

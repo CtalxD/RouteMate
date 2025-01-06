@@ -100,7 +100,7 @@ const LoginForm = () => {
 
       <Text style={styles.orText}>or</Text>
       <Link style={styles.registerLink} href="/(auth)/sign-up">
-        Register a new user
+        Signup
       </Link>
     </View>
   );
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignSelf: 'flex-end',
     color: '#082A3F',
-    marginTop: -10,
+    marginTop: 5,
     marginBottom: 12,
     textDecorationLine: 'underline',
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     width: '60%', 
     paddingVertical: 0, 
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
 
   loginButtonText: {
