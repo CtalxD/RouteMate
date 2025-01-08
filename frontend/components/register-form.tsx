@@ -1,10 +1,9 @@
 import { View, StyleSheet, Alert } from 'react-native';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, Control } from 'react-hook-form';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { useMutation } from '@tanstack/react-query';
-import type { RegisterFormData } from '../types/form';
+import type { RegisterFormData } from '../types/form'; // Ensure the type is imported
 import { Link, useRouter } from 'expo-router';
-import { COLORS } from '@/constants/colors';
 import { signUp } from '@/services/auth.service';
 
 const RegisterForm = () => {
@@ -13,12 +12,14 @@ const RegisterForm = () => {
     handleSubmit,
     reset,
     formState: { errors },
+    watch,
   } = useForm<RegisterFormData>({
     defaultValues: {
       email: '',
       password: '',
-      role: 'User',  
-    }
+      confirmPassword: '',
+      role: 'User',
+    },
   });
 
   const router = useRouter();
@@ -32,7 +33,7 @@ const RegisterForm = () => {
       {
         email: data.email,
         password: data.password,
-        role: data.role,
+        role: 'User',
       },
       {
         onSuccess: () => {
@@ -41,11 +42,11 @@ const RegisterForm = () => {
         },
         onError: (err) => {
           console.log('Could not register', err.name, err.message);
-          Alert.alert('Error while registering please try later!');
+          Alert.alert('Error while registering, please try later!');
         },
       }
     );
-    reset();
+    reset(); // Reset the form state
   };
 
   return (
@@ -59,7 +60,7 @@ const RegisterForm = () => {
       <Text style={styles.registerFormText}>Signup</Text>
 
       <Controller
-        control={control}
+        control={control as Control<RegisterFormData>}
         rules={{
           required: 'Email is required',
           pattern: {
@@ -84,7 +85,7 @@ const RegisterForm = () => {
       {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
 
       <Controller
-        control={control}
+        control={control as Control<RegisterFormData>}
         rules={{
           required: 'Password is required',
         }}
@@ -103,11 +104,32 @@ const RegisterForm = () => {
       />
       {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-      <Button 
-      mode="contained"
-      onPress={handleSubmit(onSubmit)} 
-      style={styles.registerButton} 
-      labelStyle={styles.buttonLabel}>
+      <Controller
+        control={control as Control<RegisterFormData>}
+        rules={{
+          required: 'Confirm Password is required',
+          validate: (value) => value === watch('password') || 'Passwords do not match',
+        }}
+        render={({ field: { onChange, onBlur, value } }) => (
+          <TextInput
+            onBlur={onBlur}
+            onChangeText={onChange}
+            placeholder="Confirm Password"
+            value={value}
+            secureTextEntry
+            mode="outlined"
+            style={styles.input}
+          />
+        )}
+        name="confirmPassword"
+      />
+      {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
+
+      <Button
+        mode="contained"
+        onPress={handleSubmit(onSubmit)}
+        style={styles.registerButton}
+        labelStyle={styles.buttonLabel}>
         Signup
       </Button>
 
@@ -130,7 +152,6 @@ const styles = StyleSheet.create({
     gap: 6,
     padding: 20,
   },
-
   title: {
     fontFamily: '',
     fontSize: 43,
@@ -142,7 +163,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
   },
-
   trackRide: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -155,7 +175,6 @@ const styles = StyleSheet.create({
     paddingBottom: 1,
     paddingTop: 1,
   },
-
   anywhere: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -168,7 +187,6 @@ const styles = StyleSheet.create({
     paddingTop: 1,
     paddingBottom: 1,
   },
-
   anytime: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -181,7 +199,6 @@ const styles = StyleSheet.create({
     paddingTop: 1,
     paddingBottom: 20,
   },
-
   registerFormText: {
     fontFamily: '',
     fontSize: 24,
@@ -190,7 +207,6 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingTop: 30,
   },
-  
   input: {
     width: '100%',
     height: 50,
@@ -202,12 +218,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
   },
-
   errorText: {
     color: 'red',
     marginTop: 4,
   },
-
   registerButton: {
     marginBottom: 16,
     backgroundColor: '#082A3F',
@@ -215,18 +229,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignSelf: 'center',
-    width: '60%', 
-    paddingVertical: 0, 
+    width: '60%',
+    paddingVertical: 0,
     alignItems: 'center',
     marginTop: 15,
   },
-
   buttonLabel: {
     color: '#fff',
-    fontSize: 16, 
-    fontWeight: 'bold', 
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-
   orText: {
     fontSize: 20,
     textAlign: 'center',
@@ -234,28 +246,23 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     color: '#808080',
   },
-
   infoText: {
     fontSize: 16,
-    color: '#000', 
-    paddingTop : 2,
+    color: '#000',
+    paddingTop: 2,
   },
-
   info: {
     flexDirection: 'row',
     gap: 3,
     marginTop: 5,
-    justifyContent: 'center', // Center horizontally
-    alignItems: 'center',    // Center vertically
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  
-
   infoLink: {
     fontSize: 16,
-    color: '#082A3F', 
+    color: '#082A3F',
     textDecorationLine: 'underline',
   },
-
 });
 
 export default RegisterForm;
