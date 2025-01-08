@@ -1,10 +1,10 @@
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useState } from 'react';
-import type { Control, FieldErrors, UseFormSetValue } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { Button, TextInput } from 'react-native-paper';
+import type { Control, FieldErrors, UseFormSetValue } from 'react-hook-form';
 import type { DocumentFormData } from '../types/form';
 
 type Props = {
@@ -71,7 +71,8 @@ const LocationScanner = ({ control, setValue, errors, location }: Props) => {
             onBarcodeScanned={({ data }) => {
               setValue('location', data);
               setCameraVisible(false);
-            }}>
+            }}
+          >
             <View style={styles.scannerOverlay}>
               <View style={styles.scanner} />
             </View>
