@@ -4,7 +4,6 @@ import { useAuth } from '@/context/auth-context';
 
 const ListHamburger = () => {
   const [menuVisible, setMenuVisible] = useState(false);
-  const [isDriverMode, setIsDriverMode] = useState(false);
   const [currentPage, setCurrentPage] = useState('Home');
   const [previousPage, setPreviousPage] = useState('Home'); // Track previous page
   const [editableProfile, setEditableProfile] = useState({
@@ -21,13 +20,6 @@ const ListHamburger = () => {
   const handleLogout = () => {
     setMenuVisible(false);
     onLogout();
-  };
-
-  const switchToDriverMode = () => {
-    setPreviousPage(currentPage); // Save current page before switching
-    setIsDriverMode(true);
-    setCurrentPage('DriverVerification'); // Navigate to driver verification page
-    setMenuVisible(false);
   };
 
   const navigateToProfile = () => {
@@ -122,12 +114,10 @@ const ListHamburger = () => {
             <Text style={styles.menuText}>Logout</Text>
           </TouchableOpacity>
 
-          {/* Switch Mode Button */}
-          {isDriverMode && (
-            <TouchableOpacity onPress={switchToDriverMode} style={styles.switchModeButton}>
-              <Text style={styles.switchModeText}>Switch to Driver Mode</Text>
-            </TouchableOpacity>
-          )}
+          {/* Switch to Driver Mode Button at the bottom */}
+          <TouchableOpacity style={styles.driverButton}>
+            <Text style={styles.driverButtonText}>Switch to Driver Mode</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -165,7 +155,7 @@ const styles = StyleSheet.create({
   insideBar: {
     height: 4,
     width: 30,
-    backgroundColor: 'white',
+    backgroundColor: 'white', 
     marginVertical: 3,
     borderRadius: 2,
   },
@@ -216,21 +206,6 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 16,
     color: 'white',
-  },
-  switchModeButton: {
-    marginTop: 'auto',
-    marginVertical: 10,
-    padding: 10,
-    borderRadius: 4,
-    backgroundColor: '#DB2955',
-    borderWidth: 2,
-    borderColor: '#DB2955',
-  },
-  switchModeText: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: 'white',
-    textAlign: 'center',
   },
   backButton: {
     padding: 10,
@@ -300,6 +275,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  driverButton: {
+    padding: 10,
+    backgroundColor: '#DB2955',
+    borderRadius: 5,
+    alignSelf: 'center', // Align the button to the center
+    marginTop: 'auto',
+  },
+  
+  driverButtonText: {
     color: 'white',
     fontWeight: 'bold',
     textAlign: 'center',
