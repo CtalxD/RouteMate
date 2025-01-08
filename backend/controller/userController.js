@@ -61,7 +61,7 @@ const loginUser = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { email: user.email, role: user.role, id: user.id },
+      { email: user.email, role: user.role, id: user.id,},
       config.jwtSecret,
       { expiresIn: config.jwtTokenLife }
     );
@@ -97,7 +97,7 @@ const getProfile = async (req, res) => {
       select: {
         id: true,
         email: true,
-        role: true,
+        role: true, 
       },
     });
 
@@ -115,6 +115,6 @@ module.exports = {
   msgUser,
   registerUser,
   loginUser,
-  logout,
   getProfile,
+  logout,
 };
