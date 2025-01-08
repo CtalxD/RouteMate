@@ -92,11 +92,10 @@ const LoginForm = () => {
       <Button
         mode="contained"
         onPress={handleSubmit(onSubmit)}
-        style={[styles.loginButton, { paddingHorizontal: 0 }]}
-        labelStyle={styles.loginButtonText} // Apply text styles here
->
-  Login
-</Button>
+        style={[styles.loginButton]}
+        labelStyle={styles.loginButtonText}
+>       Login
+      </Button>
 
       <Text style={styles.orText}>or</Text>
       <Link style={styles.registerLink} href="/(auth)/sign-up">

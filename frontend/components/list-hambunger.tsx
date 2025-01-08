@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import { useAuth } from '@/context/auth-context'; // Adjust the import path as necessary
+import { useAuth } from '@/context/auth-context';
 
 const ListHamburger = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [isDriverMode, setIsDriverMode] = useState(false);
-  const [currentPage, setCurrentPage] = useState('Home'); // State to manage current page
+  const [currentPage, setCurrentPage] = useState('Home');
+  const [previousPage, setPreviousPage] = useState('Home'); // Track previous page
   const [editableProfile, setEditableProfile] = useState({
     fullName: 'Ctal',
     dob: '2003-06-25',
@@ -23,28 +24,27 @@ const ListHamburger = () => {
   };
 
   const switchToDriverMode = () => {
+    setPreviousPage(currentPage); // Save current page before switching
     setIsDriverMode(true);
-    setMenuVisible(false);
-  };
-
-  const switchToPassengerMode = () => {
-    setIsDriverMode(false);
+    setCurrentPage('DriverVerification'); // Navigate to driver verification page
     setMenuVisible(false);
   };
 
   const navigateToProfile = () => {
+    setPreviousPage(currentPage); // Save current page before navigating to profile
     setCurrentPage('Profile');
     setMenuVisible(false);
   };
 
   const navigateToHome = () => {
+    setPreviousPage(currentPage); // Save current page before navigating to home
     setCurrentPage('Home');
     setMenuVisible(false);
   };
 
   const handleSaveChanges = () => {
     console.log('Profile Updated:', editableProfile);
-    navigateToHome(); // Navigate back to Home after saving changes
+    navigateToHome();
   };
 
   if (currentPage === 'Profile') {
@@ -83,17 +83,17 @@ const ListHamburger = () => {
 
   return (
     <View style={styles.container}>
-      {/* Hamburger Icon */}
+      {/* Hamburger Icon (outside menu) */}
       <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
-        <View style={styles.bar} />
-        <View style={styles.bar} />
-        <View style={styles.bar} />
+        <View style={styles.outsideBar} />
+        <View style={styles.outsideBar} />
+        <View style={styles.outsideBar} />
       </TouchableOpacity>
 
       {/* Menu */}
       {menuVisible && (
         <View style={styles.menuContainer}>
-          {/* Header with Profile Icon and 3 Dots Button */}
+          {/* Header with Profile Icon and Hamburger Button */}
           <View style={styles.menuHeader}>
             <View style={styles.profileContainer}>
               <View style={styles.profileIcon}>
@@ -102,9 +102,9 @@ const ListHamburger = () => {
               <Text style={styles.profileText}>Sital</Text>
             </View>
             <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
-              <View style={styles.bar} />
-              <View style={styles.bar} />
-              <View style={styles.bar} />
+              <View style={styles.insideBar} />
+              <View style={styles.insideBar} />
+              <View style={styles.insideBar} />
             </TouchableOpacity>
           </View>
 
@@ -121,12 +121,9 @@ const ListHamburger = () => {
           <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
             <Text style={styles.menuText}>Logout</Text>
           </TouchableOpacity>
+
           {/* Switch Mode Button */}
-          {isDriverMode ? (
-            <TouchableOpacity onPress={switchToPassengerMode} style={styles.switchModeButton}>
-              <Text style={styles.switchModeText}>Switch to Passenger Mode</Text>
-            </TouchableOpacity>
-          ) : (
+          {isDriverMode && (
             <TouchableOpacity onPress={switchToDriverMode} style={styles.switchModeButton}>
               <Text style={styles.switchModeText}>Switch to Driver Mode</Text>
             </TouchableOpacity>
@@ -137,8 +134,8 @@ const ListHamburger = () => {
       {/* Search Bars at the Bottom */}
       {!menuVisible && (
         <View style={styles.searchBarsContainer}>
-          <TextInput style={styles.searchBar} placeholder="Search From" />
-          <TextInput style={styles.searchBar} placeholder="Search To" />
+          <TextInput style={styles.searchBar} placeholder="From" />
+          <TextInput style={styles.searchBar} placeholder="To" />
           <TouchableOpacity style={styles.searchButton}>
             <Text style={styles.searchButtonText}>Search</Text>
           </TouchableOpacity>
@@ -157,9 +154,15 @@ const styles = StyleSheet.create({
   },
   hamburgerButton: {
     padding: 10,
-    backgroundColor: '#082A3F',
   },
-  bar: {
+  outsideBar: {
+    height: 4,
+    width: 30,
+    backgroundColor: 'black',
+    marginVertical: 3,
+    borderRadius: 2,
+  },
+  insideBar: {
     height: 4,
     width: 30,
     backgroundColor: 'white',

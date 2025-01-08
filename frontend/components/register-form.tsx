@@ -103,7 +103,11 @@ const RegisterForm = () => {
       />
       {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
 
-      <Button disabled={isPending} onPress={handleSubmit(onSubmit)} style={styles.registerButton} labelStyle={styles.buttonLabel}>
+      <Button 
+      mode="contained"
+      onPress={handleSubmit(onSubmit)} 
+      style={styles.registerButton} 
+      labelStyle={styles.buttonLabel}>
         Signup
       </Button>
 
