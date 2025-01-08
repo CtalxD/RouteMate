@@ -10,12 +10,11 @@ const router = express.Router();
 
 // Define routes
 router.get("/", msgUser);
-router.post("/login", loginUser);
 router.post("/register", registerUser);
+router.post("/login", loginUser);
+router.get("/profile", getProfile);
 router.get("/logout", logout);
 
-// Fetch user profile
-router.get("/profile", getProfile);
 
 // Additional route example
 router.get("/user", (req, res) => {
