@@ -17,6 +17,7 @@ export type LoginFormData = {
 export type RegisterFormData = {
   email: string;
   password?: string;
+  confirmPassword?: string;
   role: 'User';
 };
 
