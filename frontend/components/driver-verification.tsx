@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 
-const DriverVerification = () => {
+const driverVerification = () => {
   const [name, setName] = useState('');
   const [licenseNumber, setLicenseNumber] = useState('');
   const [vehicle1, setVehicle1] = useState('');
@@ -154,4 +154,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default DriverVerification;
+export default driverVerification;
