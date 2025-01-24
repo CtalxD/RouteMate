@@ -1,62 +1,180 @@
+import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { Link } from 'expo-router';
 
-import type { ForgotPasswordFormData } from '../types/form';
 import { COLORS } from '@/constants/colors';
 
+// Define the ForgotPasswordFormData type
+type ForgotPasswordFormData = {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 const ForgotPassword = () => {
+  const [step, setStep] = useState<'email' | 'verify' | 'reset'>('email');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+
   const {
     control,
     handleSubmit,
-    reset,
     formState: { errors },
+    watch,
+    reset,
   } = useForm<ForgotPasswordFormData>({
     defaultValues: {
       email: '',
+      newPassword: '',
+      confirmPassword: '',
     },
   });
 
-  const onSubmit = (data: ForgotPasswordFormData) => {
-    // Handle forgot password logic here
-    console.log('Forgot password request:', data);
-    reset();
+  const generateVerificationCode = () => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit code
+    console.log('Generated Verification Code:', code);
+    return code;
+  };
+
+  const onSubmitEmail = (data: ForgotPasswordFormData) => {
+    const code = generateVerificationCode();
+    setGeneratedCode(code);
+    setStep('verify');
+  };
+
+  const onVerifyCode = () => {
+    if (verificationCode === generatedCode) {
+      setStep('reset');
+    } else {
+      console.error('Invalid verification code');
+    }
+  };
+
+  const onChangePassword = (data: ForgotPasswordFormData) => {
+    if (data.newPassword === data.confirmPassword) {
+      console.log('Password successfully changed to:', data.newPassword);
+      reset();
+      setStep('email');
+    } else {
+      console.error('Passwords do not match');
+    }
   };
 
   return (
     <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>Forgot Password</Text>
-      <Text style={styles.subtitle}>Enter your email to reset your password.</Text>
+      {step === 'email' && (
+        <>
+          <Text variant="headlineMedium" style={styles.loginTitle}>
+            Forgot Password
+          </Text>
+          <Text style={styles.subtitle}>Enter your email to reset your password.</Text>
 
-      <Controller
-        control={control}
-        rules={{
-          required: 'Email is required',
-          pattern: {
-            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-            message: 'Invalid email address',
-          },
-        }}
-        render={({ field: { onChange, onBlur, value } }) => (
+          <Controller
+            control={control}
+            rules={{
+              required: 'Email is required',
+              pattern: {
+                value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                message: 'Invalid email address',
+              },
+            }}
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="Email"
+                value={value}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                mode="outlined"
+                style={styles.input}
+              />
+            )}
+            name="email"
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+
+          <Button mode="contained" onPress={handleSubmit(onSubmitEmail)} style={styles.resetButton}>
+            <Text style={styles.buttonText}>Send Verification Code</Text>
+          </Button>
+        </>
+      )}
+
+      {step === 'verify' && (
+        <>
+          <Text variant="headlineMedium" style={styles.loginTitle}>
+            Verify Code
+          </Text>
+          <Text style={styles.subtitle}>Enter the 6-digit code sent to the console.</Text>
+
           <TextInput
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="Email"
-            value={value}
-            autoCapitalize="none"
-            keyboardType="email-address"
+            placeholder="Enter Code"
+            value={verificationCode}
+            onChangeText={setVerificationCode}
+            keyboardType="numeric"
             mode="outlined"
             style={styles.input}
           />
-        )}
-        name="email"
-      />
-      {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
 
-      <Button mode="contained" onPress={handleSubmit(onSubmit)} style={styles.resetButton}>
-        Reset Password
-      </Button>
+          <Button mode="contained" onPress={onVerifyCode} style={styles.resetButton}>
+            <Text style={styles.buttonText}>Verify Code</Text>
+          </Button>
+        </>
+      )}
+
+      {step === 'reset' && (
+        <>
+          <Text variant="headlineMedium" style={styles.loginTitle}>
+            Reset Password
+          </Text>
+          <Text style={styles.newPasswordSubtitle}>Enter your new password below.</Text>
+
+          <Controller
+            control={control}
+            rules={{ required: 'New password is required' }}
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="New Password"
+                value={value}
+                secureTextEntry
+                mode="outlined"
+                style={styles.input}
+              />
+            )}
+            name="newPassword"
+          />
+          {errors.newPassword && <Text style={styles.errorText}>{errors.newPassword.message}</Text>}
+
+          <Controller
+            control={control}
+            rules={{
+              required: 'Please confirm your password',
+              validate: (value) => value === watch('newPassword') || 'Passwords do not match',
+            }}
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="Confirm Password"
+                value={value}
+                secureTextEntry
+                mode="outlined"
+                style={styles.input}
+              />
+            )}
+            name="confirmPassword"
+          />
+          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
+
+          <Button mode="contained" onPress={handleSubmit(onChangePassword)} style={styles.resetButton}>
+            <Text style={styles.buttonText}>Change Password</Text>
+          </Button>
+        </>
+      )}
 
       <Link style={styles.backToLogin} href="/(auth)/sign-in">
         Back to Login
@@ -72,32 +190,70 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
-  title: {
+  loginTitle: {
+    fontSize: 24,
+    color: '#082A3F',
     fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 4,
-    color: COLORS.dark.text,
+    marginBottom: 10,
+    paddingTop: 30,
   },
   subtitle: {
     textAlign: 'center',
-    marginBottom: 20,
-    color: COLORS.light.primary,
+    paddingRight: 35,
+    marginBottom: 10,
+    color: '#DB2955',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  newPasswordSubtitle: {
+    textAlign: 'center',
+    marginBottom: 10,
+    marginRight: 98,
+    color: '#DB2955',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   input: {
-    marginBottom: 12,
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#808080',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginVertical: 8,
+    fontSize: 16,
+    color: '#000',
   },
   errorText: {
     color: 'red',
-    fontSize: 12,
-    marginBottom: 8,
+    fontSize: 14,
+    paddingLeft: 8,
+    marginBottom: 10,
   },
   resetButton: {
     marginBottom: 16,
-    backgroundColor: COLORS.light.primary,
+    backgroundColor: '#082A3F',
+    height: 45,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignSelf: 'center',
+    width: '60%',
+    paddingVertical: 0,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  buttonText: {
+    fontSize: 16,   
+    fontWeight: 'regular',  
+    color: '#fff',
   },
   backToLogin: {
     textAlign: 'center',
-    color: COLORS.light.primary,
+    color: '#DB2955',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+    marginTop: 1,
   },
 });
 
