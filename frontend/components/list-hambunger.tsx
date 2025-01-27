@@ -28,6 +28,12 @@ const ListHamburger = () => {
     setMenuVisible(false);
   };
 
+  const navigateToBooking = () => {
+    setPreviousPage(currentPage); // Save current page before navigating to booking
+    setCurrentPage('Booking');
+    setMenuVisible(false);
+  };
+
   const navigateToHome = () => {
     setPreviousPage(currentPage); // Save current page before navigating to home
     setCurrentPage('Home');
@@ -106,6 +112,9 @@ const ListHamburger = () => {
           </TouchableOpacity>
           <TouchableOpacity onPress={navigateToProfile} style={styles.menuItem}>
             <Text style={styles.menuText}>Profile</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={navigateToBooking} style={styles.menuItem}>
+            <Text style={styles.menuText}>Booking</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={toggleMenu} style={styles.menuItem}>
             <Text style={styles.menuText}>Settings</Text>
@@ -286,7 +295,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center', // Align the button to the center
     marginTop: 'auto',
   },
-  
   driverButtonText: {
     color: 'white',
     fontWeight: 'bold',
