@@ -3,10 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { Link } from 'expo-router';
+import axios from 'axios';
 
-import { COLORS } from '@/constants/colors';
-
-// Define the ForgotPasswordFormData type
 type ForgotPasswordFormData = {
   email: string;
   newPassword: string;
@@ -14,7 +12,7 @@ type ForgotPasswordFormData = {
 };
 
 const ForgotPassword = () => {
-  const [step, setStep] = useState<'email' | 'verify' | 'reset'>('email');
+  const [step, setStep] = useState('email');
   const [verificationCode, setVerificationCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
 
@@ -32,16 +30,15 @@ const ForgotPassword = () => {
     },
   });
 
-  const generateVerificationCode = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString(); // Generate a 6-digit code
-    console.log('Generated Verification Code:', code);
-    return code;
-  };
-
-  const onSubmitEmail = (data: ForgotPasswordFormData) => {
-    const code = generateVerificationCode();
-    setGeneratedCode(code);
-    setStep('verify');
+  const onSubmitEmail = async (data: ForgotPasswordFormData) => {
+    try {
+      const response = await axios.post('http://localhost:5000/forgot-pass', { email: data.email });
+      console.log(response.data.message);
+      setGeneratedCode(response.data.verificationCode);
+      setStep('verify');
+    } catch (error) {
+      console.error('Error sending verification code:', error);
+    }
   };
 
   const onVerifyCode = () => {
@@ -52,11 +49,19 @@ const ForgotPassword = () => {
     }
   };
 
-  const onChangePassword = (data: ForgotPasswordFormData) => {
+  const onChangePassword = async (data: ForgotPasswordFormData) => {
     if (data.newPassword === data.confirmPassword) {
-      console.log('Password successfully changed to:', data.newPassword);
-      reset();
-      setStep('email');
+      try {
+        const response = await axios.post('http://localhost:5000/reset-pass', {
+          email: watch('email'),
+          newPassword: data.newPassword,
+        });
+        console.log(response.data.message);
+        reset();
+        setStep('email');
+      } catch (error) {
+        console.error('Error resetting password:', error);
+      }
     } else {
       console.error('Passwords do not match');
     }
