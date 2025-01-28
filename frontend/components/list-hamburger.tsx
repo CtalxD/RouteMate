@@ -3,12 +3,14 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'reac
 import { useAuth } from '@/context/auth-context';
 import Profile from './Profile';
 import { useGetProfile } from '@/services/profile.service';
+import DriverVerification from './driver-verification'; // Import the driver verification component
 
 const ListHamburger = () => {
   const { data: profileData } = useGetProfile();
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState('Home');
   const [previousPage, setPreviousPage] = useState('Home'); // Track previous page
+  const [isDriverMode, setIsDriverMode] = useState(false); // State for checking if in driver mode
 
   const { onLogout } = useAuth();
 
@@ -42,6 +44,15 @@ const ListHamburger = () => {
   const handleBack = () => {
     setCurrentPage(previousPage);
   };
+
+  const switchToDriverMode = () => {
+    setIsDriverMode(true); // Set driver mode state to true
+    setMenuVisible(false);
+  };
+
+  if (isDriverMode) {
+    return <DriverVerification />; // Render the DriverVerification page
+  }
 
   if (currentPage === 'Profile') {
     return (
@@ -112,7 +123,7 @@ const ListHamburger = () => {
           </TouchableOpacity>
 
           {/* Switch to Driver Mode Button at the bottom */}
-          <TouchableOpacity style={styles.driverButton}>
+          <TouchableOpacity onPress={switchToDriverMode} style={styles.driverButton}>
             <Text style={styles.driverButtonText}>Switch to Driver Mode</Text>
           </TouchableOpacity>
         </View>
