@@ -1,157 +1,171 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Easing } from 'react-native';
+import BusDocuments from './busDocuments';  // Import the separate screen component
+import MircoDocuments from './microDocuments';
 
-const driverVerification = () => {
-  const [name, setName] = useState('');
-  const [licenseNumber, setLicenseNumber] = useState('');
-  const [vehicle1, setVehicle1] = useState('');
-  const [vehicle2, setVehicle2] = useState('');
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState('');
-  const [isFirstVehicle, setIsFirstVehicle] = useState(true);
+const DriverVerification = () => {
+  const [isDriverSectionOpen, setDriverSectionOpen] = useState(false);
+  const [animationHeight] = useState(new Animated.Value(0));
+  const [currentScreen, setCurrentScreen] = useState('DriverVerification'); // Track the current screen
 
-  const vehicleOptions = [
-    'Vehicle 1',
-    'Vehicle 2',
-    'Vehicle 3',
-    'Vehicle 4',
-  ];
-
-  const handleSubmit = () => {
-    if (!name || !licenseNumber || !vehicle1 || !vehicle2) {
-      alert('Please fill all the fields.');
-      return;
-    }
-    alert('Documents and vehicles selected.');
+  const handlePress = () => {
+    setDriverSectionOpen(!isDriverSectionOpen);
+    Animated.timing(animationHeight, {
+      toValue: isDriverSectionOpen ? 0 : 160,
+      duration: 300,
+      easing: Easing.ease,
+      useNativeDriver: false,
+    }).start();
   };
 
-  const handleVehicleSelect = (vehicle: string) => {
-    if (isFirstVehicle) {
-      setVehicle1(vehicle);
-      setIsFirstVehicle(false);
-    } else {
-      setVehicle2(vehicle);
-      setIsModalVisible(false);
-    }
+  const navigateToBusDocuments = () => {
+    setCurrentScreen('BusDocuments'); // Navigate to the BusDocuments screen
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Driver Verification</Text>
-      
-      <Text style={styles.label}>Full Name:</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter your full name"
-        value={name}
-        onChangeText={setName}
-      />
-      
-      <Text style={styles.label}>License Number:</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter your license number"
-        value={licenseNumber}
-        onChangeText={setLicenseNumber}
-      />
+  const renderScreen = () => {
+    if (currentScreen === 'DriverVerification') {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.title}>Driver Verification</Text>
+          <Text style={styles.subTitle}>Upload and verify your documents</Text>
 
-      <Text style={styles.label}>Select Vehicle 1:</Text>
-      <TouchableOpacity onPress={() => { setIsModalVisible(true); setIsFirstVehicle(true); }}>
-        <TextInput
-          style={styles.input}
-          placeholder="Select Vehicle 1"
-          editable={false}
-          value={vehicle1}
-        />
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.driverSection} onPress={handlePress}>
+            <View style={styles.iconContainer}>
+              <Image
+                source={{ uri: 'https://img.icons8.com/ios/452/car.png' }} // Car Logo
+                style={styles.driverLogo}
+              />
+              <Text style={styles.driverText}>Driver</Text>
+            </View>
+            <Text style={[styles.arrow, { color: isDriverSectionOpen ? '#082A3F' : '#000000' }]}> ▼</Text>
+          </TouchableOpacity>
 
-      <Text style={styles.label}>Select Vehicle 2:</Text>
-      <TouchableOpacity onPress={() => { setIsModalVisible(true); setIsFirstVehicle(false); }}>
-        <TextInput
-          style={styles.input}
-          placeholder="Select Vehicle 2"
-          editable={false}
-          value={vehicle2}
-        />
-      </TouchableOpacity>
+          <Animated.View style={[styles.dropdown, { height: animationHeight }]}>
+  <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
+    <Image
+      source={{ uri: 'https://img.icons8.com/ios/452/bus.png' }} // Bus Logo
+      style={styles.subSectionLogo}
+    />
+    <Text style={styles.subSectionText}>Bus</Text>
+  </TouchableOpacity>
+  
+  <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
+    <Image
+      source={{ uri: 'https://img.icons8.com/ios/452/van.png' }} // Microbus (Van) Logo
+      style={styles.subSectionLogo}
+    />
+    <Text style={styles.subSectionText}>Microbus</Text>
+  </TouchableOpacity>
+</Animated.View>
 
-      <Button title="Submit" onPress={handleSubmit} />
 
-      {/* Modal for vehicle selection */}
-      <Modal
-        visible={isModalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setIsModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select a Vehicle</Text>
-            {vehicleOptions.map((vehicle, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.modalButton}
-                onPress={() => handleVehicleSelect(vehicle)}
-              >
-                <Text>{vehicle}</Text>
-              </TouchableOpacity>
-            ))}
-            <Button title="Close" onPress={() => setIsModalVisible(false)} />
-          </View>
+          <TouchableOpacity style={styles.footerButton}>
+            <Text style={styles.footerButtonText}>Switch to Passenger Mode</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </View>
-  );
+      );
+    } else if (currentScreen === 'BusDocuments') {
+      return <BusDocuments />;  // Render the BusDocuments component when navigating
+    }
+  };
+
+  return renderScreen();
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    justifyContent: 'center',
     backgroundColor: '#fff',
   },
   title: {
+    fontFamily: '',
+    fontSize: 36,
+    fontWeight: 'bold',
+    paddingRight: 30,
+    color: '#082A3F',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#DB2955',
+    paddingRight: 50,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  driverSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderWidth: 1,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    marginTop: 20,
+    justifyContent: 'space-between',
+    backgroundColor: '#f0f0f0',
+  },
+  driverText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#082A3F',
+  },
+  iconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  driverLogo: {
+    width: 30,
+    height: 30,
+    marginRight: 10,
+  },
+  arrow: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
   },
-  label: {
-    fontSize: 16,
-    marginVertical: 10,
+  dropdown: {
+    overflow: 'hidden',
+    width: '100%',
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#ccc',
+    borderRadius: 8,
   },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
+  subSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
     borderWidth: 1,
-    marginBottom: 15,
-    paddingLeft: 8,
-    borderRadius: 5,
+    borderRadius: 8,
+    borderColor: '#ccc',
+    marginTop: 10,
+    justifyContent: 'flex-start',
+    backgroundColor: '#e9e9e9',
   },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: 300,
-    padding: 20,
-    backgroundColor: 'white',
-    borderRadius: 10,
-  },
-  modalTitle: {
+  subSectionText: {
     fontSize: 18,
-    marginBottom: 20,
-    textAlign: 'center',
+    fontWeight: '500',
+    marginLeft: 10,
+    color: '#082A3F',
   },
-  modalButton: {
-    padding: 10,
-    backgroundColor: '#ddd',
-    marginBottom: 10,
-    borderRadius: 5,
+  subSectionLogo: {
+    width: 30,
+    height: 30,
+  },
+  footerButton: {
+    backgroundColor: '#082A3F',
+    paddingVertical: 15,
+    borderRadius: 8,
+    marginTop: 20,
     alignItems: 'center',
+  },
+  footerButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
 
-export default driverVerification;
+export default DriverVerification;
