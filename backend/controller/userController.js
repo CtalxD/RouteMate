@@ -1,3 +1,4 @@
+const { Resend } = require('resend');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
@@ -68,7 +69,7 @@ const loginUser = async (req, res) => {
 
     res.cookie("jwt_cookie", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "development",
       maxAge: 3600000, // 1 hour
     });
 
@@ -83,8 +84,9 @@ const logout = (req, res) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
-const getProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
   try {
+    
     const token = req.cookies.jwt_cookie;
     if (!token) {
       return res.status(401).json({ message: "Unauthorized: No token provided" });
@@ -93,12 +95,7 @@ const getProfile = async (req, res) => {
     const decoded = jwt.verify(token, config.jwtSecret);
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        role: true, 
-      },
+      where: { id: decoded.id }
     });
 
     if (!user) {
@@ -111,10 +108,91 @@ const getProfile = async (req, res) => {
   }
 };
 
+const updateUserProfile = async(req,res) =>{
+  try {
+    let token = req.cookies.jwt_cookie ?? req.headers.authorization.split(" ")[1] ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImN0YWxAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpZCI6MSwiaWF0IjoxNzM3OTgyNTg0LCJleHAiOjE3Mzc5ODYxODR9.lRnenWPEMBJmSJfCIZbcoN5fn03AKPgBtCFD_MKMG0E";
+  
+    const decoded = jwt.verify(token, config.jwtSecret);
+
+    const { fullName, profilePic } = req.body;
+
+    if (!fullName) {
+      return res.status(400).json({ message: "Full Name is required" });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: decoded.id },
+      data: {
+        fullName,
+        profilePic,
+      },
+    });
+
+    res.status(200).json({ message: "Profile updated successfully", user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+}
+
+const resend = new Resend(process.env.RESEND_TOKEN_SECRET);
+
+const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const verificationCode = generateCode();
+
+    try {
+      await resend.emails.send({
+        from: 'ctalaryal22@gmail.com',
+        to: email,
+        subject: 'Password Reset Verification Code',
+        text: `Your verification code is: ${verificationCode}`,
+      });
+
+      res.status(200).json({ message: 'Verification code sent successfully', verificationCode });
+    } catch (sendError) {
+      console.error('Error sending email:', sendError);
+      return res.status(500).json({ error: 'Failed to send verification code' });
+    }
+  } catch (error) {
+    console.error('Error in forgotPassword:', error);
+    res.status(500).json({ error: 'An error occurred while requesting password reset' });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { email, newPassword } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
+    res.status(200).json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Error in resetPassword:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+};
+
+module.exports = {
+  forgotPassword,
+  resetPassword,
+};
+
+
 module.exports = {
   msgUser,
+  forgotPassword,
+  resetPassword,
   registerUser,
   loginUser,
-  getProfile,
+  getUserProfile,
+  updateUserProfile,
   logout,
 };
