@@ -1,4 +1,4 @@
-import ListHamburger from '@/components/list-hambunger';
+import ListHamburger from '@/components/list-hamburger';
 import SafeAreaScrollableView from '@/components/safe-area-scrollable-view';
 
 const List = () => {
