@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Easing } from 'react-native';
 import BusDocuments from './busDocuments';  // Import the separate screen component
-import MircoDocuments from './microDocuments';
+import MicroDocuments from './microDocuments';  // Import MicroDocuments component
 
 const DriverVerification = () => {
   const [isDriverSectionOpen, setDriverSectionOpen] = useState(false);
   const [animationHeight] = useState(new Animated.Value(0));
   const [currentScreen, setCurrentScreen] = useState('DriverVerification'); // Track the current screen
+  const [currentPage, setCurrentPage] = useState('DriverVerification'); // Track the current page
+  const [previousPage, setPreviousPage] = useState<string | null>(null); // Allow null or string for previousPage
 
   const handlePress = () => {
     setDriverSectionOpen(!isDriverSectionOpen);
@@ -19,7 +21,17 @@ const DriverVerification = () => {
   };
 
   const navigateToBusDocuments = () => {
-    setCurrentScreen('BusDocuments'); // Navigate to the BusDocuments screen
+    setCurrentScreen('BusDocuments'); // Switch to the BusDocuments screen
+  };
+
+  const navigateToMicroDocuments = () => {
+    setCurrentScreen('MicroDocuments'); // Switch to the MicroDocuments screen
+  };
+
+  const navigateToHome = () => {
+    setPreviousPage(currentPage); // Save current page before navigating to home
+    setCurrentPage('Home'); // Switch to the home page
+    setCurrentScreen('DriverVerification'); // You can change this if needed to match the home screen view
   };
 
   const renderScreen = () => {
@@ -41,31 +53,32 @@ const DriverVerification = () => {
           </TouchableOpacity>
 
           <Animated.View style={[styles.dropdown, { height: animationHeight }]}>
-  <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
-    <Image
-      source={{ uri: 'https://img.icons8.com/ios/452/bus.png' }} // Bus Logo
-      style={styles.subSectionLogo}
-    />
-    <Text style={styles.subSectionText}>Bus</Text>
-  </TouchableOpacity>
+            <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
+              <Image
+                source={{ uri: 'https://img.icons8.com/ios/452/bus.png' }} // Bus Logo
+                style={styles.subSectionLogo}
+              />
+              <Text style={styles.subSectionText}>Bus</Text>
+            </TouchableOpacity>
   
-  <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
-    <Image
-      source={{ uri: 'https://img.icons8.com/ios/452/van.png' }} // Microbus (Van) Logo
-      style={styles.subSectionLogo}
-    />
-    <Text style={styles.subSectionText}>Microbus</Text>
-  </TouchableOpacity>
-</Animated.View>
+            <TouchableOpacity style={styles.subSection} onPress={navigateToMicroDocuments}>
+              <Image
+                source={{ uri: 'https://img.icons8.com/ios/452/van.png' }} // Microbus (Van) Logo
+                style={styles.subSectionLogo}
+              />
+              <Text style={styles.subSectionText}>Microbus</Text>
+            </TouchableOpacity>
+          </Animated.View>
 
-
-          <TouchableOpacity style={styles.footerButton}>
+          <TouchableOpacity style={styles.footerButton} onPress={navigateToHome}>
             <Text style={styles.footerButtonText}>Switch to Passenger Mode</Text>
           </TouchableOpacity>
         </View>
       );
     } else if (currentScreen === 'BusDocuments') {
       return <BusDocuments />;  // Render the BusDocuments component when navigating
+    } else if (currentScreen === 'MicroDocuments') {
+      return <MicroDocuments />;  // Render the MicroDocuments component when navigating
     }
   };
 
@@ -80,7 +93,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   title: {
-    fontFamily: '',
     fontSize: 36,
     fontWeight: 'bold',
     paddingRight: 30,
