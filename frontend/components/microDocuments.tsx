@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 
-const MircoDocuments = () => {
+const MicroDocuments = () => {
   const handleSectionClick = (section: string) => {
     // Handle navigation or actions based on the clicked section
     switch (section) {
@@ -20,6 +20,11 @@ const MircoDocuments = () => {
       default:
         console.log('Unknown section');
     }
+  };
+
+  const handleBackPress = () => {
+    // Handle back button click
+    console.log('Back button pressed');
   };
 
   // Animated component for a smooth press effect
@@ -46,6 +51,16 @@ const MircoDocuments = () => {
 
   return (
     <View style={styles.container}>
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={handleBackPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <Text style={styles.backButtonText}>{'\u2039'} Back</Text>
+      </TouchableOpacity>
+
       <Text style={styles.title}>Micro Documents</Text>
       <Text style={styles.subTitle}>Upload your documents here.</Text>
 
@@ -115,8 +130,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
+  backButton: {
+    position: 'absolute', // Position it absolutely
+    top:25, // Set top distance from the top of the screen
+    left: 20, // Set left distance from the left of the screen
+  },
+  backButtonText: {
+    fontSize: 18,
+    color: '#082A3F',
+    fontWeight: 'bold',
+  },  
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#082A3F',
     textAlign: 'center',
@@ -170,4 +195,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MircoDocuments;
+export default MicroDocuments;
