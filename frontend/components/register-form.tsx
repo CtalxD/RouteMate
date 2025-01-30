@@ -1,6 +1,7 @@
+import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { useForm, Controller, Control } from 'react-hook-form';
-import { TextInput, Button, Text } from 'react-native-paper';
+import { TextInput, Button, Text, IconButton } from 'react-native-paper';
 import { useMutation } from '@tanstack/react-query';
 import type { RegisterFormData } from '../types/form'; // Ensure the type is imported
 import { Link, useRouter } from 'expo-router';
@@ -27,6 +28,10 @@ const RegisterForm = () => {
     mutationKey: ['register-user'],
     mutationFn: signUp,
   });
+
+  // State for password visibility toggle
+  const [passwordVisible, setPasswordVisible] = React.useState(false);
+  const [confirmPasswordVisible, setConfirmPasswordVisible] = React.useState(false);
 
   const onSubmit = (data: RegisterFormData) => {
     mutateAsync(
@@ -90,15 +95,23 @@ const RegisterForm = () => {
           required: 'Password is required',
         }}
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="Password"
-            value={value}
-            secureTextEntry
-            mode="outlined"
-            style={styles.input}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              onBlur={onBlur}
+              onChangeText={onChange}
+              placeholder="Password"
+              value={value}
+              secureTextEntry={!passwordVisible}
+              mode="outlined"
+              style={styles.input}
+            />
+            <IconButton
+              icon={passwordVisible ? "eye" : "eye-off"}
+              size={24}
+              onPress={() => setPasswordVisible(!passwordVisible)}
+              style={styles.iconButton}
+            />
+          </View>
         )}
         name="password"
       />
@@ -111,15 +124,23 @@ const RegisterForm = () => {
           validate: (value) => value === watch('password') || 'Passwords do not match',
         }}
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="Confirm Password"
-            value={value}
-            secureTextEntry
-            mode="outlined"
-            style={styles.input}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              onBlur={onBlur}
+              onChangeText={onChange}
+              placeholder="Confirm Password"
+              value={value}
+              secureTextEntry={!confirmPasswordVisible}
+              mode="outlined"
+              style={styles.input}
+            />
+            <IconButton
+              icon={confirmPasswordVisible ? "eye" : "eye-off"}
+              size={24}
+              onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+              style={styles.iconButton}
+            />
+          </View>
         )}
         name="confirmPassword"
       />
@@ -217,6 +238,14 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     fontSize: 16,
     color: '#000',
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    position: 'absolute',
+    right: 10,
   },
   errorText: {
     color: 'red',

@@ -2,12 +2,15 @@ import { View, StyleSheet } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { Link } from 'expo-router';
+import { useState } from 'react';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import type { LoginFormData } from '../types/form';
 import { COLORS } from '@/constants/colors';
 import { useAuth } from '@/context/auth-context';
 
 const LoginForm = () => {
+  const [showPassword, setShowPassword] = useState(false);
   const {
     control,
     handleSubmit,
@@ -71,15 +74,24 @@ const LoginForm = () => {
           required: 'Password is required',
         }}
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="Password"
-            value={value}
-            secureTextEntry
-            mode="outlined"
-            style={styles.input}
-          />
+          <View style={styles.passwordContainer}>
+            <TextInput
+              onBlur={onBlur}
+              onChangeText={onChange}
+              placeholder="Password"
+              value={value}
+              secureTextEntry={!showPassword}
+              mode="outlined"
+              style={[styles.input, styles.passwordInput]}
+            />
+            <MaterialIcons
+              name={showPassword ? 'visibility' : 'visibility-off'}
+              size={24}
+              color="gray"
+              style={styles.passwordIcon}
+              onPress={() => setShowPassword((prev) => !prev)}
+            />
+          </View>
         )}
         name="password"
       />
@@ -92,9 +104,10 @@ const LoginForm = () => {
       <Button
         mode="contained"
         onPress={handleSubmit(onSubmit)}
-        style={[styles.loginButton]}
+        style={styles.loginButton}
         labelStyle={styles.loginButtonText}
->       Login
+      >
+        Login
       </Button>
 
       <Text style={styles.orText}>or</Text>
@@ -184,6 +197,21 @@ const styles = StyleSheet.create({
     color: '#000',
   },
 
+  passwordContainer: {
+    position: 'relative',
+  },
+
+  passwordInput: {
+    paddingRight: 40, // To give space for the icon
+  },
+
+  passwordIcon: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+  },
+
   errorText: {
     color: 'red',
     fontSize: 12,
@@ -205,19 +233,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignSelf: 'center',
-    width: '60%', 
-    paddingVertical: 0, 
+    width: '60%',
+    paddingVertical: 0,
     alignItems: 'center',
     marginTop: 10,
   },
 
   loginButtonText: {
     fontSize: 16,
-    fontWeight: 'bold', 
-    color: '#fff', 
+    fontWeight: 'bold',
+    color: '#fff',
   },
 
-  
   orText: {
     fontSize: 20,
     textAlign: 'center',
@@ -225,7 +252,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     color: '#808080',
   },
-  
+
   registerLink: {
     marginBottom: 16,
     backgroundColor: '#DB2955',
@@ -237,11 +264,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 20,
-    textAlign: 'center', 
-    color: '#fff', 
+    textAlign: 'center',
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
 });
-  
+
 export default LoginForm;
