@@ -93,6 +93,14 @@ const RegisterForm = () => {
         control={control as Control<RegisterFormData>}
         rules={{
           required: 'Password is required',
+          minLength: {
+            value: 8,
+            message: 'Password must be at least 8 characters long',
+          },
+          pattern: {
+            value: /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+            message: 'Password must contain letters, numbers, and special characters',
+          },
         }}
         render={({ field: { onChange, onBlur, value } }) => (
           <View style={styles.passwordContainer}>
