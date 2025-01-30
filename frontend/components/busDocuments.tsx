@@ -1,28 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import DriverInfo from './Bus/DriverInfo'; // Import DriverInfo component
+import DriverLicense from './Bus/license'; // Import DriverLicense component
+import SelfieWithID from './Bus/ID'; // Import SelfieWithID component
+import VehicleInfo from './Bus/VehicleInfo'; // Import VehicleInfo component
 
 const BusDocuments = () => {
+  const [currentPage, setCurrentPage] = useState('busDocuments'); // Track current page
+
+  // Function to change pages based on section clicked
   const handleSectionClick = (section: string) => {
-    // Handle navigation or actions based on the clicked section
-    switch (section) {
-      case 'Basic Info':
-        console.log('Navigating to Basic Info section');
-        break;
-      case 'Driver License':
-        console.log('Navigating to Driver License section');
-        break;
-      case 'Selfie with ID':
-        console.log('Navigating to Selfie with ID section');
-        break;
-      case 'Vehicle Info':
-        console.log('Navigating to Vehicle Info section');
-        break;
-      default:
-        console.log('Unknown section');
+    if (section === 'Basic Info') {
+      setCurrentPage('driverInfo');
+    } else if (section === 'Driver License') {
+      setCurrentPage('driverLicense');
+    } else if (section === 'Selfie with ID') {
+      setCurrentPage('selfieWithID');
+    } else if (section === 'Vehicle Info') {
+      setCurrentPage('vehicleInfo');
+    } else {
+      console.log(`Navigating to ${section} section`);
     }
   };
 
-  // Animated component for a smooth press effect
+  // Animated component for smooth press effect
   const [scaleValue] = React.useState(new Animated.Value(1));
 
   const handlePressIn = () => {
@@ -44,6 +45,23 @@ const BusDocuments = () => {
     console.log('Done button pressed');
   };
 
+  // Conditional rendering based on the current page
+  if (currentPage === 'driverInfo') {
+    return <DriverInfo />;
+  }
+
+  if (currentPage === 'driverLicense') {
+    return <DriverLicense />;
+  }
+
+  if (currentPage === 'selfieWithID') {
+    return <SelfieWithID />;
+  }
+
+  if (currentPage === 'vehicleInfo') {
+    return <VehicleInfo />;
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bus Documents</Text>
@@ -58,7 +76,7 @@ const BusDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Basic Info</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 2: Driver License */}
@@ -69,7 +87,7 @@ const BusDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Driver License</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 3: Selfie with ID */}
@@ -80,7 +98,7 @@ const BusDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Selfie with ID</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 4: Vehicle Info */}
@@ -91,7 +109,7 @@ const BusDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Vehicle Info</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -108,6 +126,7 @@ const BusDocuments = () => {
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -116,11 +135,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#082A3F',
     textAlign: 'center',
-    paddingRight: 80,
+    paddingRight: 110,
     marginBottom: 10,
   },
   subTitle: {
@@ -135,13 +154,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sectionBox: {
-    flexDirection: 'row', // Align text and arrow horizontally
+    flexDirection: 'row',
     backgroundColor: '#f4f4f4',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 15, // Add margin between sections
-    alignItems: 'center', // Vertically center the content
+    marginBottom: 15,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#082A3F',
   },
@@ -149,12 +168,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#082A3F',
-    flex: 1, // Allow the text to take up the available space
+    flex: 1,
   },
   arrow: {
-    fontSize: 24,  // Increase the font size for the arrow
+    fontSize: 24,
     color: '#082A3F',
-    marginLeft: 10, // Add space between text and arrow
+    marginLeft: 10,
   },
   doneButton: {
     backgroundColor: '#082A3F',
