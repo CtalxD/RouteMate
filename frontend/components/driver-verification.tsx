@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Easing } from 'react-native';
 import BusDocuments from './busDocuments';  // Import the separate screen component
 import MicroDocuments from './microDocuments';  // Import MicroDocuments component
+import ListHamburger from './list-hamburger'; // Import your ListHamburger component
 
 const DriverVerification = () => {
   const [isDriverSectionOpen, setDriverSectionOpen] = useState(false);
@@ -31,7 +32,7 @@ const DriverVerification = () => {
   const navigateToHome = () => {
     setPreviousPage(currentPage); // Save current page before navigating to home
     setCurrentPage('Home'); // Switch to the home page
-    setCurrentScreen('DriverVerification'); // You can change this if needed to match the home screen view
+    setCurrentScreen('ListHamburger'); // Switch to the ListHamburger screen
   };
 
   const renderScreen = () => {
@@ -41,7 +42,11 @@ const DriverVerification = () => {
           <Text style={styles.title}>Driver Verification</Text>
           <Text style={styles.subTitle}>Upload and verify your documents</Text>
 
-          <TouchableOpacity style={styles.driverSection} onPress={handlePress}>
+          <TouchableOpacity
+            style={styles.driverSection}
+            onPress={handlePress}
+            activeOpacity={0.8}
+          >
             <View style={styles.iconContainer}>
               <Image
                 source={{ uri: 'https://img.icons8.com/ios/452/car.png' }} // Car Logo
@@ -53,7 +58,11 @@ const DriverVerification = () => {
           </TouchableOpacity>
 
           <Animated.View style={[styles.dropdown, { height: animationHeight }]}>
-            <TouchableOpacity style={styles.subSection} onPress={navigateToBusDocuments}>
+            <TouchableOpacity
+              style={styles.subSection}
+              onPress={navigateToBusDocuments}
+              activeOpacity={0.8}
+            >
               <Image
                 source={{ uri: 'https://img.icons8.com/ios/452/bus.png' }} // Bus Logo
                 style={styles.subSectionLogo}
@@ -61,7 +70,11 @@ const DriverVerification = () => {
               <Text style={styles.subSectionText}>Bus</Text>
             </TouchableOpacity>
   
-            <TouchableOpacity style={styles.subSection} onPress={navigateToMicroDocuments}>
+            <TouchableOpacity
+              style={styles.subSection}
+              onPress={navigateToMicroDocuments}
+              activeOpacity={0.8}
+            >
               <Image
                 source={{ uri: 'https://img.icons8.com/ios/452/van.png' }} // Microbus (Van) Logo
                 style={styles.subSectionLogo}
@@ -70,7 +83,11 @@ const DriverVerification = () => {
             </TouchableOpacity>
           </Animated.View>
 
-          <TouchableOpacity style={styles.footerButton} onPress={navigateToHome}>
+          <TouchableOpacity
+            style={styles.footerButton}
+            onPress={navigateToHome}
+            activeOpacity={0.8}
+          >
             <Text style={styles.footerButtonText}>Switch to Passenger Mode</Text>
           </TouchableOpacity>
         </View>
@@ -79,6 +96,8 @@ const DriverVerification = () => {
       return <BusDocuments />;  // Render the BusDocuments component when navigating
     } else if (currentScreen === 'MicroDocuments') {
       return <MicroDocuments />;  // Render the MicroDocuments component when navigating
+    } else if (currentScreen === 'ListHamburger') {
+      return <ListHamburger />;  // Render ListHamburger component
     }
   };
 
