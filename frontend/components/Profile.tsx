@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useUpdateProfile, useGetProfile } from '@/services/profile.service';
@@ -8,22 +8,24 @@ interface ProfileProps {
 }
 
 const Profile = ({ onBack }: ProfileProps) => {
-  const { data: profileData, isLoading } = useGetProfile();
+  const { data: profileData, isLoading, isError } = useGetProfile();
   const [formData, setFormData] = useState({
     fullName: '',
+    profilePicUri: '',
+    profilePicType: '',
     email: '',
-    profilePic: null as string | null,
   });
+  const [formError, setFormError] = useState('');
 
   const updateProfileMutation = useUpdateProfile();
 
-  // Update form data when profile is fetched
-  React.useEffect(() => {
+  useEffect(() => {
     if (profileData) {
       setFormData({
-        fullName: profileData.fullName,
-        email: profileData.email,
-        profilePic: profileData.profilePic || null,
+        fullName: profileData.fullName || '',
+        profilePicUri: profileData.profilePic || '',
+        profilePicType: '',
+        email: profileData.email || '',
       });
     }
   }, [profileData]);
@@ -42,20 +44,49 @@ const Profile = ({ onBack }: ProfileProps) => {
       quality: 1,
     });
 
-    if (!result.canceled) {
-      setFormData({ ...formData, profilePic: result.assets[0].uri });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setFormData({
+        ...formData,
+        profilePicUri: asset.uri,
+        profilePicType: asset.type || 'image/jpeg',
+      });
     }
   };
 
   const handleSaveChanges = async () => {
     try {
-      await updateProfileMutation.mutateAsync({
-        fullName: formData.fullName,
-        profilePic: formData.profilePic,
-      });
+      setFormError('');
+      const trimmedFullName = formData.fullName.trim();
+
+      if (!trimmedFullName) {
+        setFormError('Full Name is required');
+        return;
+      }
+
+      const formDataToSend = new FormData();
+      formDataToSend.append('fullName', trimmedFullName);
+
+      if (formData.profilePicUri && !formData.profilePicUri.startsWith('http')) {
+        // Only append if it's a new image (not a URL)
+        const filename = formData.profilePicUri.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        const imageFile = {
+          uri: formData.profilePicUri,
+          type: type,
+          name: filename || 'profile.jpg',
+        };
+
+        formDataToSend.append('profilePic', imageFile as any);
+      }
+
+      await updateProfileMutation.mutateAsync(formDataToSend);
       onBack();
     } catch (error) {
       console.error('Failed to update profile:', error);
+      setFormError('Failed to update profile. Please try again.');
     }
   };
 
@@ -67,11 +98,19 @@ const Profile = ({ onBack }: ProfileProps) => {
     );
   }
 
+  if (isError) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Error loading profile. Please try again later.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.profilePicture} onPress={pickImage}>
-        {formData.profilePic ? (
-          <Image source={{ uri: formData.profilePic }} style={styles.profileImage} />
+        {formData.profilePicUri ? (
+          <Image source={{ uri: formData.profilePicUri }} style={styles.profileImage} />
         ) : (
           <View style={styles.profileImagePlaceholder}>
             <Text style={styles.profileImagePlaceholderText}>Add Photo</Text>
@@ -81,15 +120,19 @@ const Profile = ({ onBack }: ProfileProps) => {
       <View style={styles.profileDetails}>
         <Text style={styles.profileTitle}>Edit Profile</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, formError ? styles.inputError : null]}
           placeholder="Full Name"
           value={formData.fullName}
-          onChangeText={(text) => setFormData({ ...formData, fullName: text })}
+          onChangeText={(text) => {
+            setFormError('');
+            setFormData({ ...formData, fullName: text });
+          }}
         />
+        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
         <TextInput
           style={[styles.input, styles.disabledInput]}
           placeholder="Email"
-          value={formData.email}
+          value={profileData?.email}
           editable={false}
         />
         <TouchableOpacity
@@ -171,9 +214,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileImage: {
-    width: '100%',
-    height: '100%',
+    width: 120,
+    height: 120,
     borderRadius: 60,
+    resizeMode: 'cover',
   },
   profileImagePlaceholder: {
     flex: 1,
@@ -183,6 +227,16 @@ const styles = StyleSheet.create({
   profileImagePlaceholderText: {
     color: '#666',
     fontSize: 16,
+  },
+  inputError: {
+    borderColor: '#FF0000',
+  },
+  errorText: {
+    color: '#FF0000',
+    fontSize: 14,
+    marginTop: -15,
+    marginBottom: 15,
+    marginLeft: 5,
   },
 });
 
