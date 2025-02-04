@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    paddingRight: 63,
+    paddingRight: 38,
     marginBottom: 10,
     color: '#DB2955',
     fontSize: 16,
