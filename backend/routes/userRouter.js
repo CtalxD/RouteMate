@@ -1,25 +1,26 @@
 const express = require("express");
-const {
-  registerUser,
-  loginUser,
-  logout,
-  msgUser, // Ensure this is correctly exported in your controller
-  getUserProfile,
+const router = express.Router();
+const upload = require("../middlewares/upload");
+const { 
+  msgUser,
   forgotPassword,
   resetPassword,
-  updateUserProfile, // Adding the missing functionality for fetching user profile
+  registerUser,
+  loginUser,
+  getUserProfile,
+  updateUserProfile,
+  logout,
+  refreshToken 
 } = require("../controller/userController");
-const router = express.Router();
 
-// Define routes
 router.get("/", msgUser);
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.get("/profile", getUserProfile);
-router.get("/logout", logout);
-router.post("/forgot-pass",forgotPassword );
-router.post("/reset-pass",resetPassword );
-router.put("/profile",updateUserProfile)
-
+router.put("/profile", upload.single("profilePic"), updateUserProfile);
+router.post("/logout", logout);
+router.post("/forgot-pass", forgotPassword);
+router.post("/reset-pass", resetPassword);
+router.post("/refresh-token", refreshToken);
 
 module.exports = router;
