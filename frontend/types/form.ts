@@ -27,10 +27,9 @@ export interface LoginResponse {
 }
 
 export interface ErrorResponse {
-  error: true;
+  error: boolean;
   msg: string;
 }
-
 
 export type ForgotPasswordFormData = {
   email: string;
