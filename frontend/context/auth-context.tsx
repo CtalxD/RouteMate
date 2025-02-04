@@ -1,34 +1,80 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import api from '@/services/api';
-import { secureStore } from '@/helper/secure.storage.helper';
+import { asyncStore } from '@/helper/async.storage.helper';
 import type { ErrorResponse, LoginFormData, LoginResponse } from '@/types/form';
 import { ACCESS_TOKEN_KEY, API_URL, REFRESH_TOKEN_KEY } from '@/constants';
 import axios, { type AxiosError } from 'axios';
 
+interface AuthState {
+  accessToken: string | null;
+  refreshToken: string | null;
+  authenticated: boolean;
+}
+
 interface AuthProps {
-  authState: { token: string | null; authenticated: boolean | null };
+  authState: AuthState;
   onLogin: (data: LoginFormData) => Promise<LoginResponse | ErrorResponse>;
-  onLogout: () => void;
+  onLogout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthProps | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [authState, setAuthState] = useState<{ token: string | null; authenticated: boolean }>({
-    token: null,
+  const [authState, setAuthState] = useState<AuthState>({
+    accessToken: null,
+    refreshToken: null,
     authenticated: false,
   });
 
+  const refreshAccessToken = async () => {
+    try {
+      const currentRefreshToken = await asyncStore.getItem(REFRESH_TOKEN_KEY);
+      if (!currentRefreshToken) throw new Error('No refresh token');
+
+      const response = await api.post<{ accessToken: string; refreshToken: string }>(`${API_URL}/refresh-token`, {
+        refreshToken: currentRefreshToken
+      });
+
+      const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
+
+      await Promise.all([
+        asyncStore.setItem(ACCESS_TOKEN_KEY, newAccessToken),
+        asyncStore.setItem(REFRESH_TOKEN_KEY, newRefreshToken)
+      ]);
+
+      axios.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+      
+      setAuthState(prev => ({ 
+        ...prev, 
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken
+      }));
+
+      return newAccessToken;
+    } catch (error) {
+      await logout();
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const loadTokens = async () => {
-      const token = await secureStore.getItem(ACCESS_TOKEN_KEY);
+      try {
+        const [accessToken, refreshToken] = await Promise.all([
+          asyncStore.getItem(ACCESS_TOKEN_KEY),
+          asyncStore.getItem(REFRESH_TOKEN_KEY),
+        ]);
 
-      if (token) {
-        axios.defaults.headers.common.Authorization = `Bearer ${token}`;
-        setAuthState({
-          authenticated: true,
-          token: token,
-        });
+        if (accessToken && refreshToken) {
+          axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+          setAuthState({
+            authenticated: true,
+            accessToken,
+            refreshToken,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading tokens:', error);
       }
     };
     loadTokens();
@@ -36,26 +82,43 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (data: LoginFormData): Promise<LoginResponse | ErrorResponse> => {
     try {
-      const result = await api.post(`${API_URL}/login`, data);
-      await secureStore.setItem(ACCESS_TOKEN_KEY, result.data.token);
-      await secureStore.setItem(REFRESH_TOKEN_KEY, result.data.refreshToken);
-      axios.defaults.headers.common.Authorization = `Bearer ${result.data.token}`;
-      setAuthState({ authenticated: true, token: result.data.token });
+      const result = await api.post<LoginResponse>(`${API_URL}/login`, data);
+      const { accessToken, refreshToken,  } = result.data;
+
+      await Promise.all([
+        asyncStore.setItem(ACCESS_TOKEN_KEY, accessToken),
+        asyncStore.setItem(REFRESH_TOKEN_KEY, refreshToken)
+      ]);
+
+      axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+      setAuthState({ 
+        authenticated: true, 
+        accessToken, 
+        refreshToken,
+      });
 
       return result.data;
     } catch (e) {
-      const error = e as AxiosError;
-      console.error(error);
-      return { error: true, msg: error.message || 'An unknown error occurred' };
+      const error = e as AxiosError<ErrorResponse>;
+      return { 
+        error: true, 
+        msg: error.message || 'An unknown error occurred' 
+      };
     }
   };
 
   const logout = async () => {
-    await secureStore.deleteItem(ACCESS_TOKEN_KEY);
-    await secureStore.deleteItem(REFRESH_TOKEN_KEY);
-
-    axios.defaults.headers.common.Authorization = '';
-    setAuthState({ authenticated: false, token: null });
+    try {
+      await asyncStore.deleteItem();
+      axios.defaults.headers.common.Authorization = '';
+      setAuthState({ 
+        authenticated: false, 
+        accessToken: null, 
+        refreshToken: null 
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
