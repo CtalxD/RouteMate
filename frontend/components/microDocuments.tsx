@@ -1,33 +1,50 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import DriverInfo from './Micro/DriverInfo'; // Import DriverInfo component
+import DriverLicense from './Micro/license'; // Import DriverLicense component
+import SelfieWithID from './Micro/ID'; // Import SelfieWithID component
+import VehicleInfo from './Micro/VehicleInfo'; // Import VehicleInfo component
+import DriverVerification from './driver-verification'; // Import DriverVerification component
 
 const MicroDocuments = () => {
-  const handleSectionClick = (section: string) => {
-    // Handle navigation or actions based on the clicked section
-    switch (section) {
-      case 'Basic Info':
-        console.log('Navigating to Basic Info section');
-        break;
-      case 'Driver License':
-        console.log('Navigating to Driver License section');
-        break;
-      case 'Selfie with ID':
-        console.log('Navigating to Selfie with ID section');
-        break;
-      case 'Vehicle Info':
-        console.log('Navigating to Vehicle Info section');
-        break;
-      default:
-        console.log('Unknown section');
+  const [currentPage, setCurrentPage] = useState('microDocuments'); // Track current page
+  const [pageHistory, setPageHistory] = useState(['microDocuments']); // Keep track of page history
+
+  // Function to change pages based on section clicked
+  const handleSectionClick = (
+    section: 'Basic Info' | 'Driver License' | 'Selfie with ID' | 'Vehicle Info'
+  ) => {
+    if (section === 'Basic Info') {
+      setCurrentPage('driverInfo');
+      setPageHistory([...pageHistory, 'driverInfo']);
+    } else if (section === 'Driver License') {
+      setCurrentPage('driverLicense');
+      setPageHistory([...pageHistory, 'driverLicense']);
+    } else if (section === 'Selfie with ID') {
+      setCurrentPage('selfieWithID');
+      setPageHistory([...pageHistory, 'selfieWithID']);
+    } else if (section === 'Vehicle Info') {
+      setCurrentPage('vehicleInfo');
+      setPageHistory([...pageHistory, 'vehicleInfo']);
     }
   };
 
+  // Function to handle back button click
   const handleBackPress = () => {
-    // Handle back button click
-    console.log('Back button pressed');
+    const newHistory = [...pageHistory];
+    newHistory.pop(); // Remove the current page
+
+    if (newHistory.length === 0) {
+      // If there are no more pages in history, navigate to the 'driver-verification' page
+      setCurrentPage('driver-verification');
+    } else {
+      setPageHistory(newHistory);
+      setCurrentPage(newHistory[newHistory.length - 1]); // Set the previous page as current
+    }
   };
 
-  // Animated component for a smooth press effect
+  // Animated component for smooth press effect
   const [scaleValue] = React.useState(new Animated.Value(1));
 
   const handlePressIn = () => {
@@ -49,16 +66,83 @@ const MicroDocuments = () => {
     console.log('Done button pressed');
   };
 
+  // Conditional rendering based on the current page
+  if (currentPage === 'driver-verification') {
+    return <DriverVerification />; // Show DriverVerification page when currentPage is 'driver-verification'
+  }
+
+  if (currentPage === 'driverInfo') {
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <DriverInfo />
+      </View>
+    );
+  }
+
+  if (currentPage === 'driverLicense') {
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <DriverLicense />
+      </View>
+    );
+  }
+
+  if (currentPage === 'selfieWithID') {
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <SelfieWithID />
+      </View>
+    );
+  }
+
+  if (currentPage === 'vehicleInfo') {
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <VehicleInfo />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={handleBackPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
+        onPress={handleBackPress} // Custom back navigation
       >
-        <Text style={styles.backButtonText}>{'\u2039'} Back</Text>
+        <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
       </TouchableOpacity>
 
       <Text style={styles.title}>Micro Documents</Text>
@@ -73,7 +157,7 @@ const MicroDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Basic Info</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 2: Driver License */}
@@ -84,7 +168,7 @@ const MicroDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Driver License</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 3: Selfie with ID */}
@@ -95,7 +179,7 @@ const MicroDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Selfie with ID</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
         {/* Section 4: Vehicle Info */}
@@ -106,7 +190,7 @@ const MicroDocuments = () => {
           onPressOut={handlePressOut}
         >
           <Text style={styles.sectionText}>Vehicle Info</Text>
-          <Text style={styles.arrow}>›</Text> {/* Simple arrow symbol */}
+          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
       </View>
 
@@ -123,6 +207,7 @@ const MicroDocuments = () => {
   );
 };
 
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -131,21 +216,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   backButton: {
-    position: 'absolute', // Position it absolutely
-    top:25, // Set top distance from the top of the screen
-    left: 20, // Set left distance from the left of the screen
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 1,
   },
-  backButtonText: {
-    fontSize: 18,
-    color: '#082A3F',
-    fontWeight: 'bold',
-  },  
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#082A3F',
     textAlign: 'center',
-    paddingRight: 80,
+    paddingRight: 110,
     marginBottom: 10,
   },
   subTitle: {
@@ -153,20 +234,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#DB2955',
     textAlign: 'center',
-    paddingRight: 99,
+    paddingRight: 125,
     marginBottom: 20,
   },
   sectionsContainer: {
     width: '100%',
   },
   sectionBox: {
-    flexDirection: 'row', // Align text and arrow horizontally
+    flexDirection: 'row',
     backgroundColor: '#f4f4f4',
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 15, // Add margin between sections
-    alignItems: 'center', // Vertically center the content
+    marginBottom: 15,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: '#082A3F',
   },
@@ -174,12 +255,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#082A3F',
-    flex: 1, // Allow the text to take up the available space
+    flex: 1,
   },
   arrow: {
-    fontSize: 24,  // Increase the font size for the arrow
+    fontSize: 24,
     color: '#082A3F',
-    marginLeft: 10, // Add space between text and arrow
+    marginLeft: 10,
   },
   doneButton: {
     backgroundColor: '#082A3F',
@@ -195,4 +276,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MicroDocuments;
+export default MicroDocuments; 
