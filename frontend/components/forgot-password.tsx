@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { Link } from 'expo-router';
 import axios from 'axios';
+import { Ionicons } from '@expo/vector-icons'; // Import Ionicons for the password view icon
 
 type ForgotPasswordFormData = {
   email: string;
@@ -15,6 +16,7 @@ const ForgotPassword = () => {
   const [step, setStep] = useState('email');
   const [verificationCode, setVerificationCode] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // State for toggling password visibility
 
   const {
     control,
@@ -112,7 +114,7 @@ const ForgotPassword = () => {
           <Text variant="headlineMedium" style={styles.loginTitle}>
             Verify Code
           </Text>
-          <Text style={styles.subtitle}>Enter the 6-digit code sent to the console.</Text>
+          <Text style={styles.code}>Enter the 6-digit code sent to the console.</Text>
 
           <TextInput
             placeholder="Enter Code"
@@ -136,43 +138,63 @@ const ForgotPassword = () => {
           </Text>
           <Text style={styles.newPasswordSubtitle}>Enter your new password below.</Text>
 
-          <Controller
-            control={control}
-            rules={{ required: 'New password is required' }}
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                onBlur={onBlur}
-                onChangeText={onChange}
-                placeholder="New Password"
-                value={value}
-                secureTextEntry
-                mode="outlined"
-                style={styles.input}
-              />
-            )}
-            name="newPassword"
-          />
+          {/* New Password Field with Eye Icon */}
+          <View style={styles.passwordInputContainer}>
+            <Controller
+              control={control}
+              rules={{ required: 'New password is required' }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="New Password"
+                  value={value}
+                  secureTextEntry={!showPassword}
+                  mode="outlined"
+                  style={styles.input}
+                />
+              )}
+              name="newPassword"
+            />
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={24}
+              color="gray"
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.passwordIcon}
+            />
+          </View>
           {errors.newPassword && <Text style={styles.errorText}>{errors.newPassword.message}</Text>}
 
-          <Controller
-            control={control}
-            rules={{
-              required: 'Please confirm your password',
-              validate: (value) => value === watch('newPassword') || 'Passwords do not match',
-            }}
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                onBlur={onBlur}
-                onChangeText={onChange}
-                placeholder="Confirm Password"
-                value={value}
-                secureTextEntry
-                mode="outlined"
-                style={styles.input}
-              />
-            )}
-            name="confirmPassword"
-          />
+          {/* Confirm Password Field with Eye Icon */}
+          <View style={styles.passwordInputContainer}>
+            <Controller
+              control={control}
+              rules={{
+                required: 'Please confirm your password',
+                validate: (value) => value === watch('newPassword') || 'Passwords do not match',
+              }}
+              render={({ field: { onChange, onBlur, value } }) => (
+                <TextInput
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="Confirm Password"
+                  value={value}
+                  secureTextEntry={!showPassword}
+                  mode="outlined"
+                  style={styles.input}
+                />
+              )}
+              name="confirmPassword"
+            />
+            <Ionicons
+              name={showPassword ? 'eye-off' : 'eye'}
+              size={24}
+              color="gray"
+              onPress={() => setShowPassword(!showPassword)}
+              style={styles.passwordIcon}
+            />
+          </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
 
           <Button mode="contained" onPress={handleSubmit(onChangePassword)} style={styles.resetButton}>
@@ -204,7 +226,15 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: 'center',
-    paddingRight: 35,
+    paddingRight: 63,
+    marginBottom: 10,
+    color: '#DB2955',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  code: {
+    textAlign: 'center',
+    paddingRight: 55,
     marginBottom: 10,
     color: '#DB2955',
     fontSize: 16,
@@ -214,6 +244,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     marginRight: 98,
+    paddingRight: 27,
     color: '#DB2955',
     fontSize: 16,
     fontWeight: 'bold',
@@ -248,8 +279,8 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
   buttonText: {
-    fontSize: 16,   
-    fontWeight: 'regular',  
+    fontSize: 16,
+    fontWeight: 'regular',
     color: '#fff',
   },
   backToLogin: {
@@ -259,6 +290,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textDecorationLine: 'underline',
     marginTop: 1,
+  },
+  passwordInputContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  passwordIcon: {
+    position: 'absolute',
+    right: 10,
+    top: '50%', 
+    transform: [{ translateY: -12 }], 
   },
 });
 
