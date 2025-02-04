@@ -87,14 +87,14 @@ const Profile = ({ onBack }: ProfileProps) => {
           onChangeText={(text) => setFormData({ ...formData, fullName: text })}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, styles.disabledInput]}
           placeholder="Email"
           value={formData.email}
           editable={false}
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={handleSaveChanges}
-          style={styles.saveButton}
+          style={[styles.saveButton, updateProfileMutation.isPending && styles.disabledButton]}
           disabled={updateProfileMutation.isPending}
         >
           <Text style={styles.saveButtonText}>
@@ -109,43 +109,60 @@ const Profile = ({ onBack }: ProfileProps) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: 20,
+    backgroundColor: '#F5F5F5',
   },
   profilePicture: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#ccc',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E0E0E0',
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: '#007BFF',
+    overflow: 'hidden',
   },
   profileDetails: {
     flex: 1,
     justifyContent: 'center',
   },
   profileTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#333',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   input: {
-    height: 40,
-    borderColor: '#ccc',
+    height: 55,
+    width: '100%',
+    borderColor: '#ddd',
     borderWidth: 1,
-    borderRadius: 4,
-    marginBottom: 16,
-    paddingHorizontal: 8,
+    borderRadius: 8,
+    paddingLeft: 10,
+    marginBottom: 20,
+    fontSize: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 5,
+    backgroundColor: '#FFF',
+  },
+  disabledInput: {
+    backgroundColor: '#E8E8E8',
   },
   saveButton: {
     backgroundColor: '#007BFF',
-    padding: 12,
-    borderRadius: 4,
+    paddingVertical: 14,
+    borderRadius: 8,
     alignItems: 'center',
   },
+  disabledButton: {
+    backgroundColor: '#A3C7FF',
+  },
   saveButtonText: {
-    color: '#fff',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -156,7 +173,7 @@ const styles = StyleSheet.create({
   profileImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 50,
+    borderRadius: 60,
   },
   profileImagePlaceholder: {
     flex: 1,
@@ -165,7 +182,7 @@ const styles = StyleSheet.create({
   },
   profileImagePlaceholderText: {
     color: '#666',
-    fontSize: 14,
+    fontSize: 16,
   },
 });
 
