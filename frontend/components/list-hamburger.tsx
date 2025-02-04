@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image } from 'react-native';
+import { TextInput, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useAuth } from '@/context/auth-context';
 import Profile from './Profile';
 import { useGetProfile } from '@/services/profile.service';
 import DriverVerification from './driver-verification'; // Import the driver verification component
+import Booking from './Booking'; // Import the Booking component
+import Settings from './Settings'; // Import the Settings component
+import Icon from 'react-native-vector-icons/Ionicons';  // Import Ionicons for back arrow icon
 
 const ListHamburger = () => {
   const { data: profileData } = useGetProfile();
@@ -41,6 +44,12 @@ const ListHamburger = () => {
     setMenuVisible(false);
   };
 
+  const navigateToSettings = () => {
+    setPreviousPage(currentPage); // Save current page before navigating to settings
+    setCurrentPage('Settings');
+    setMenuVisible(false);
+  };
+
   const handleBack = () => {
     setCurrentPage(previousPage);
   };
@@ -58,11 +67,34 @@ const ListHamburger = () => {
     return (
       <View style={styles.container}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Back</Text>
+          <Icon name="arrow-back" size={30} color="black" /> {/* Back arrow icon */}
         </TouchableOpacity>
         <View style={styles.profileDetails}>
           <Profile onBack={handleBack} />
         </View>
+      </View>
+    );
+  }
+
+  if (currentPage === 'Booking') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Icon name="arrow-back" size={30} color="black" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+        <Booking />
+      </View>
+    );
+  }
+
+  if (currentPage === 'Settings') {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButtonSettings}>
+          <Icon name="arrow-back" size={30} color="black" /> {/* Back arrow icon */}
+          <Text style={styles.settingsText}>Settings</Text> {/* Settings text next to the icon */}
+        </TouchableOpacity>
+        <Settings />
       </View>
     );
   }
@@ -115,7 +147,7 @@ const ListHamburger = () => {
           <TouchableOpacity onPress={navigateToBooking} style={styles.menuItem}>
             <Text style={styles.menuText}>Booking</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={toggleMenu} style={styles.menuItem}>
+          <TouchableOpacity onPress={navigateToSettings} style={styles.menuItem}>
             <Text style={styles.menuText}>Settings</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
@@ -218,13 +250,25 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 10,
-    backgroundColor: '#DB2955',
+    backgroundColor: '',
     borderRadius: 4,
     marginBottom: 10,
   },
-  backButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+  backButtonSettings: {
+    padding: 10,
+    backgroundColor: '',
+    borderRadius: 4,
+    marginBottom: 10,
+    marginLeft: 10,
+    flexDirection: 'row', // Align items horizontally (row)
+    alignItems: 'center', // Align text and icon vertically
+    marginTop: 10,
+  },
+  settingsText: {
+    fontSize: 26,
+    fontWeight: '600',
+    color: 'black',
+    marginLeft: 10,  // Adds space between the back arrow and the text
   },
   profileDetails: {
     backgroundColor: '#FFFFFF',
