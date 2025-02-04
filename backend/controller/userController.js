@@ -2,7 +2,7 @@ const { Resend } = require('resend');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { PrismaClient } = require("@prisma/client");
-const { loginSchema, registerSchema } = require("../utils/userSchema");
+const { loginSchema, registerSchema, userUpdateSchema } = require("../utils/userSchema");
 const { config } = require("../config");
 
 const prisma = new PrismaClient();
@@ -61,78 +61,174 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    const token = jwt.sign(
-      { email: user.email, role: user.role, id: user.id,},
+    const accessToken = jwt.sign(
+      { email: user.email, role: user.role, id: user.id },
       config.jwtSecret,
-      { expiresIn: config.jwtTokenLife }
+      { expiresIn: '15m' }
     );
 
-    res.cookie("jwt_cookie", token, {
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      config.refreshTokenSecret,
+      { expiresIn: '7d' }
+    );
+
+    // Set cookies with appropriate options
+    res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "development",
-      maxAge: 3600000, // 1 hour
+      secure: process.env.NODE_ENV === 'development',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000 // 15 minutes
     });
 
-    res.status(200).json({ token });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'development',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+
+    // Send success response
+    res.status(200).json({
+      accessToken,
+      refreshToken
+    });
   } catch (error) {
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
 const logout = (req, res) => {
-  res.clearCookie("jwt_cookie");
+  // Clear both cookies
+  res.clearCookie('access_token');
+  res.clearCookie('refresh_token');
   res.status(200).json({ message: "Logged out successfully" });
 };
 
 const getUserProfile = async (req, res) => {
   try {
-    
-    const token = req.cookies.jwt_cookie;
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized: No token provided" });
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        status: 'error',
+        message: "Access token required"
+      });
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret);
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id }
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    const accessToken = authHeader.split(' ')[1];
+    if (!accessToken) {
+      return res.status(401).json({
+        status: 'error',
+        message: "Access token is missing"
+      });
     }
 
-    res.status(200).json({ user });
+    try {
+      const decoded = jwt.verify(accessToken, config.jwtSecret);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          fullName:true,
+          profilePic:true
+        }
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          status: 'error',
+          message: "User not found"
+        });
+      }
+
+      return res.status(200).json({
+        data: user
+      });
+
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          status: 'error',
+          code: 'TOKEN_EXPIRED',
+          message: 'Access token has expired. Please refresh token.'
+        });
+      }
+      throw err;
+    }
+
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    console.error('Error in getUserProfile:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: "Internal server error",
+      error: error.message
+    });
   }
 };
 
-const updateUserProfile = async(req,res) =>{
+const updateUserProfile = async (req, res) => {
+
+  const validationResult = userUpdateSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({ errors: validationResult.error.errors });
+    }
+
   try {
-    let token = req.cookies.jwt_cookie ?? req.headers.authorization.split(" ")[1] ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImN0YWxAZ21haWwuY29tIiwicm9sZSI6IlVTRVIiLCJpZCI6MSwiaWF0IjoxNzM3OTgyNTg0LCJleHAiOjE3Mzc5ODYxODR9.lRnenWPEMBJmSJfCIZbcoN5fn03AKPgBtCFD_MKMG0E";
-  
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        status: "error",
+        message: "Access token required",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, config.jwtSecret);
 
-    const { fullName, profilePic } = req.body;
+    const { fullName } = req.body;
 
     if (!fullName) {
       return res.status(400).json({ message: "Full Name is required" });
+    }
+
+    let profilePic;
+    if (req.file) {
+      // Create full URL for the profile picture
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      profilePic = `${baseUrl}/uploads/${req.file.filename}`;
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: decoded.id },
       data: {
         fullName,
-        profilePic,
+        ...(profilePic && { profilePic }), // Store full URL in database
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        profilePic: true,
+        role: true,
       },
     });
 
-    res.status(200).json({ message: "Profile updated successfully", user: updatedUser });
+    res.status(200).json({
+      status: "success",
+      message: "Profile updated successfully",
+      user: updatedUser,
+    });
   } catch (error) {
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ message: "Invalid token" });
+    }
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
-}
+};
 
 const resend = new Resend(process.env.RESEND_TOKEN_SECRET);
 
@@ -180,11 +276,54 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = {
-  forgotPassword,
-  resetPassword,
-};
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
 
+    if (!refreshToken) {
+      return res.status(401).json({ 
+        status: 'error',
+        message: 'Refresh token required' 
+      });
+    }
+
+    const decoded = jwt.verify(refreshToken, config.refreshTokenSecret);
+    
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id }
+    });
+
+    if (!user) {
+      return res.status(401).json({ 
+        status: 'error',
+        message: 'Invalid refresh token' 
+      });
+    }
+
+    // Generate new tokens
+    const newAccessToken = jwt.sign(
+      { email: user.email, role: user.role, id: user.id },
+      config.jwtSecret,
+      { expiresIn: '15m' }
+    );
+
+    const newRefreshToken = jwt.sign(
+      { id: user.id },
+      config.refreshTokenSecret,
+      { expiresIn: '7d' }
+    );
+
+    res.status(200).json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken
+    });
+  } catch (error) {
+    res.status(401).json({ 
+      status: 'error',
+      message: 'Invalid refresh token' 
+    });
+  }
+};
 
 module.exports = {
   msgUser,
@@ -195,4 +334,5 @@ module.exports = {
   getUserProfile,
   updateUserProfile,
   logout,
+  refreshToken,
 };
