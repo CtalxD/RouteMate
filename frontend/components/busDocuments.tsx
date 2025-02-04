@@ -1,25 +1,46 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import DriverInfo from './Bus/DriverInfo'; // Import DriverInfo component
 import DriverLicense from './Bus/license'; // Import DriverLicense component
 import SelfieWithID from './Bus/ID'; // Import SelfieWithID component
 import VehicleInfo from './Bus/VehicleInfo'; // Import VehicleInfo component
+import DriverVerification from './driver-verification'; // Import DriverVerification component
 
 const BusDocuments = () => {
   const [currentPage, setCurrentPage] = useState('busDocuments'); // Track current page
+  const [pageHistory, setPageHistory] = useState(['busDocuments']); // Keep track of page history
 
   // Function to change pages based on section clicked
-  const handleSectionClick = (section: string) => {
+  const handleSectionClick = (
+    section: 'Basic Info' | 'Driver License' | 'Selfie with ID' | 'Vehicle Info'
+  ) => {
     if (section === 'Basic Info') {
       setCurrentPage('driverInfo');
+      setPageHistory([...pageHistory, 'driverInfo']);
     } else if (section === 'Driver License') {
       setCurrentPage('driverLicense');
+      setPageHistory([...pageHistory, 'driverLicense']);
     } else if (section === 'Selfie with ID') {
       setCurrentPage('selfieWithID');
+      setPageHistory([...pageHistory, 'selfieWithID']);
     } else if (section === 'Vehicle Info') {
       setCurrentPage('vehicleInfo');
+      setPageHistory([...pageHistory, 'vehicleInfo']);
+    }
+  };
+
+  // Function to handle back button click
+  const handleBackPress = () => {
+    const newHistory = [...pageHistory];
+    newHistory.pop(); // Remove the current page
+
+    if (newHistory.length === 0) {
+      // If there are no more pages in history, navigate to the 'driver-verification' page
+      setCurrentPage('driver-verification');
     } else {
-      console.log(`Navigating to ${section} section`);
+      setPageHistory(newHistory);
+      setCurrentPage(newHistory[newHistory.length - 1]); // Set the previous page as current
     }
   };
 
@@ -46,24 +67,84 @@ const BusDocuments = () => {
   };
 
   // Conditional rendering based on the current page
+  if (currentPage === 'driver-verification') {
+    return <DriverVerification />; // Show DriverVerification page when currentPage is 'driver-verification'
+  }
+
   if (currentPage === 'driverInfo') {
-    return <DriverInfo />;
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <DriverInfo />
+      </View>
+    );
   }
 
   if (currentPage === 'driverLicense') {
-    return <DriverLicense />;
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <DriverLicense />
+      </View>
+    );
   }
 
   if (currentPage === 'selfieWithID') {
-    return <SelfieWithID />;
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <SelfieWithID />
+      </View>
+    );
   }
 
   if (currentPage === 'vehicleInfo') {
-    return <VehicleInfo />;
+    return (
+      <View style={styles.container}>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackPress} // Custom back navigation
+        >
+          <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+        </TouchableOpacity>
+
+        <VehicleInfo />
+      </View>
+    );
   }
 
   return (
     <View style={styles.container}>
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={handleBackPress} // Custom back navigation
+      >
+        <Ionicons name="arrow-back" size={30} color="#082A3F" /> {/* Back arrow icon */}
+      </TouchableOpacity>
+
       <Text style={styles.title}>Bus Documents</Text>
       <Text style={styles.subTitle}>Upload your documents here.</Text>
 
@@ -134,12 +215,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#fff',
   },
+  backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 1,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#082A3F',
     textAlign: 'center',
-    paddingRight: 110,
+    paddingRight: 130,
     marginBottom: 10,
   },
   subTitle: {
@@ -147,7 +234,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#DB2955',
     textAlign: 'center',
-    paddingRight: 99,
+    paddingRight: 118,
     marginBottom: 20,
   },
   sectionsContainer: {
@@ -189,4 +276,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BusDocuments;
+export default BusDocuments; 
