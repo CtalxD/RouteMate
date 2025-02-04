@@ -1,24 +1,25 @@
 import axios from 'axios';
-import { secureStore } from '@/helper/secure.storage.helper';
 import { ACCESS_TOKEN_KEY, API_URL, REFRESH_TOKEN_KEY } from '@/constants';
+import { asyncStore } from '@/helper/async.storage.helper';
 
-// Create Axios instance
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    
   },
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Request interceptor - Add access token to requests
+api.interceptors.request.use(async (config) => {
+  const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`;
   }
   return config;
 });
 
-// Add an interceptor for automatic token refresh
+// Response interceptor - Handle token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -27,22 +28,27 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      const refreshToken = await secureStore.getItem(REFRESH_TOKEN_KEY);
-      if (!refreshToken) {
-        return Promise.reject(error);
-      }
-
       try {
-        const { data } = await api.post(`${API_URL}/auth/refresh_token`, { refreshToken });
-        const newAccessToken = data.accessToken;
+        const refreshToken = await asyncStore.getItem(REFRESH_TOKEN_KEY);
+        if (!refreshToken) throw new Error('No refresh token available');
 
-        await secureStore.setItem(ACCESS_TOKEN_KEY, newAccessToken);
-        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        const response = await axios.post(`${API_URL}/auth/refresh`, {
+          refreshToken
+        });
 
-        return api(originalRequest); // Retry the original request
+        const { accessToken, newRefreshToken } = response.data;
+
+        // Store new tokens
+        await asyncStore.setItem(ACCESS_TOKEN_KEY, accessToken);
+        await asyncStore.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+
+        // Retry original request with new token
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
       } catch (refreshError) {
-        return Promise.reject(refreshError);
+        // If refresh fails, logout user
+        await asyncStore.deleteItem();
+        throw refreshError;
       }
     }
 
