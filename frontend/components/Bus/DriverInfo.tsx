@@ -31,7 +31,7 @@ const DriverInfo = ({ navigation }: any) => {
       } else if (response.errorCode) {
         console.log('Error: ', response.errorMessage);
       } else {
-        setImage(response.assets[0].uri); // Fixed here
+        setImage(response.assets[0].uri); 
       }
     });
   };
