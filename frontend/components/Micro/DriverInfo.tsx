@@ -193,7 +193,7 @@ const DriverInfo = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    paddingTop: 70,
     justifyContent: 'center',
     backgroundColor: '#fff',
     marginTop: -200,
