@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'flex-start',
-    paddingTop: 150,
+    paddingTop: 130,
     backgroundColor: '#fff',
   },
   title: {
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 80,
+    marginRight: 40,
   },
   boxContainer: {
     backgroundColor: '#d3d3d3',
