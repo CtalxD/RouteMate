@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#082A3F',
     textAlign: 'center',
-    paddingRight: 130,
+    paddingRight: 110,
     marginBottom: 10,
   },
   subTitle: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#DB2955',
     textAlign: 'center',
-    paddingRight: 118,
+    paddingRight: 100,
     marginBottom: 20,
   },
   sectionsContainer: {
