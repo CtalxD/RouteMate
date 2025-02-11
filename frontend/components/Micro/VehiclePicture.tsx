@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 80,
+    marginRight: 40,
   },
   boxContainer: {
     backgroundColor: '#d3d3d3',
