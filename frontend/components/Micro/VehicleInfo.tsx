@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 10,
-    marginRight: 40,
+    marginRight: 10,
   },
   description: {
     fontSize: 18,
@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     color: '#DB2955',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 50,
+    marginRight: 20,
   },
   sectionsContainer: {
     width: '100%',
