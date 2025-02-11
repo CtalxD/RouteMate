@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 140,
+    marginRight: 110,
   },
   boxContainer: {
     backgroundColor: '#d3d3d3',
