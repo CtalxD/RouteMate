@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 75,
+    marginRight: 40,
   },
   inputContainer: {
     marginBottom: 20,
