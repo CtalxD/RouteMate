@@ -102,7 +102,7 @@ const Bluebook = () => {
           style={styles.uploadButton}
           onPress={() => setIsModalVisible2(true)}  // Open second modal
         >
-          <Text style={styles.uploadText}>Upload Another Photo</Text>
+          <Text style={styles.uploadText}>Upload a Photo</Text>
         </TouchableOpacity>
 
         {/* Image preview for second upload */}
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     justifyContent: 'flex-start',
-    paddingTop: 100,
+    paddingTop: 50,
     backgroundColor: '#fff',
   },
   title: {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 140,
+    marginRight: 110,
   },
   boxContainer: {
     backgroundColor: '#d3d3d3',
