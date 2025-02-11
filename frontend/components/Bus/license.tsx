@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 
-const Registration = () => {
-  const [registrationPlate, setRegistrationPlate] = useState('');
+const license = () => {
+  const [LicenseNumber, setLicenseNumber] = useState('');
 
-  // Function to handle registration plate input change
+  // Function to handle License Number input change
   const handleInputChange = (text: string) => {
-    setRegistrationPlate(text);
+    setLicenseNumber(text);
   };
 
   // Function to handle form submission
   const handleSubmit = () => {
-    console.log('Registration Plate:', registrationPlate);
+    console.log('License Number:', LicenseNumber);
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Registration Plate</Text>
+      <Text style={styles.title}>License Number</Text>
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          value={registrationPlate}
+          value={LicenseNumber}
           onChangeText={handleInputChange}
-          placeholder="Enter Registration Plate"
+          placeholder="Enter License Number"
           keyboardType="default"
         />
       </View>
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     color: '#082A3F',
     textAlign: 'center',
     marginBottom: 20,
-    marginRight: 40,
+    marginRight: 65,
   },
   inputContainer: {
     marginBottom: 20,
@@ -86,4 +86,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Registration;
+export default license;
