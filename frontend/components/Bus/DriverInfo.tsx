@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Animated, Alert, Modal, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { launchImageLibrary, launchCamera, ImageLibraryOptions, CameraOptions } from 'react-native-image-picker';
 
@@ -15,8 +16,18 @@ const DriverInfo = ({ navigation }: any) => {
 
   const animatedLineWidth = useState(new Animated.Value(0))[0];
 
-  const handleSubmit = () => {
-    console.log('Driver Info Submitted:', { firstName, lastName, dob, image });
+  const handleSubmit = async () => {
+    try {
+      const response = await axios.post('http://localhost:5000/api/driverInfo/submit', {
+        firstName,
+        lastName,
+        dob,
+        image,
+      });
+      console.log('Driver Info Submitted:', response.data);
+    } catch (error) {
+      console.error('Error submitting driver info:', error);
+    }
   };
 
   const pickImage = () => {

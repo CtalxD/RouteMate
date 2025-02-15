@@ -3,15 +3,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  ADMIN
+  USER
+  DRIVER
+}
+
 model User {
-  id         Int     @id @default(autoincrement())
-  email      String  @unique
+  id         Int       @id @default(autoincrement())
+  email      String    @unique
   fullName   String?
   profilePic String?
   password   String
-  role       String? @default("USER")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  age        Int?
+  role       Role      @default(USER)
+  document   Document? @relation("UserDocument")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Document {
+  id            Int      @id @default(autoincrement())
+  licenseNumber Int
+  blueBookImage String[]
+  vehicleImage  String[]
+  productionYear Int
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  user          User     @relation("UserDocument", fields: [userId], references: [id])
+  userId        Int      @unique
+  adminComment  String?  // Optional feedback from admin
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 

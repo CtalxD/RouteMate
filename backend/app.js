@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const userRoutes = require("./routes/userRouter");
+const documentRoute = require("./routes/documentRouter")
 const cookieParser = require("cookie-parser");
 const { config } = require("./config");
 const cors = require("cors");
@@ -26,6 +27,7 @@ if (!fs.existsSync(uploadDir)){
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/", userRoutes);
+app.use("",documentRoute)
 
 const port = config.port;
 app.listen(port, () => {

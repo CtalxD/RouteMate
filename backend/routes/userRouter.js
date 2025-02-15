@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../middlewares/upload");
-const { 
-  msgUser,
+
+const {
   forgotPassword,
   resetPassword,
   registerUser,
@@ -10,17 +10,19 @@ const {
   getUserProfile,
   updateUserProfile,
   logout,
-  refreshToken 
+  refreshToken
 } = require("../controller/userController");
 
-router.get("/", msgUser);
+// Public routes (no authentication required)
 router.post("/register", registerUser);
 router.post("/login", loginUser);
-router.get("/profile", getUserProfile);
-router.put("/profile", upload.single("profilePic"), updateUserProfile);
-router.post("/logout", logout);
 router.post("/forgot-pass", forgotPassword);
 router.post("/reset-pass", resetPassword);
 router.post("/refresh-token", refreshToken);
+
+//protected routes
+router.get("/profile", authenticateToken, getUserProfile);
+router.put("/profile", authenticateToken, upload.single("profilePic"), updateUserProfile);
+router.post("/logout", authenticateToken, logout);
 
 module.exports = router;

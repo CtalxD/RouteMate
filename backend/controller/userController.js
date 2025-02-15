@@ -7,8 +7,6 @@ const { config } = require("../config");
 
 const prisma = new PrismaClient();
 
-const msgUser = (req, res) => res.send("Welcome to the user route");
-
 const registerUser = async (req, res) => {
   try {
     const validationResult = registerSchema.safeParse(req.body);
@@ -325,8 +323,39 @@ const refreshToken = async (req, res) => {
   }
 };
 
+//for admin
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      include: {
+        document: true
+      }
+    });
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching users", error: error.message });
+  }
+};
+
+const updateDriverEligibility = async (req, res) => {
+  const { userId } = req.params;
+  const { isDriverEligible } = req.body;
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { isDriverEligible }
+    });
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: "Error updating driver eligibility", error: error.message });
+  }
+};
+
+
 module.exports = {
-  msgUser,
+  getAllUsers,
+updateDriverEligibility,
   forgotPassword,
   resetPassword,
   registerUser,
