@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { authorizeRole } = require('../middleware/authMiddleware');
-const {multipleUpload} = require("../middlewares/upload")
+const { validateRequest } = require('../middleware/validateRequest');
+const {multipleUpload} = require("../middleware/upload")
 const  {createDocumentSchema} = require('../utils/documentSchema')
 const {
     createDocument,

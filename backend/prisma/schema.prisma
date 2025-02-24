@@ -23,19 +23,18 @@ model User {
 }
 
 model Document {
-  id            Int      @id @default(autoincrement())
-  licenseNumber Int
-  blueBookImage String[]
-  vehicleImage  String[]
+  id             Int      @id @default(autoincrement())
+  licenseNumber  Int
+  blueBookImage  String[]
+  vehicleImage   String[]
   productionYear Int
-  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  user          User     @relation("UserDocument", fields: [userId], references: [id])
-  userId        Int      @unique
-  adminComment  String?  // Optional feedback from admin
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  user           User     @relation("UserDocument", fields: [userId], references: [id])
+  userId         Int      @unique
+  adminComment   String? // Optional feedback from admin
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
-
 
 generator client {
   provider = "prisma-client-js"

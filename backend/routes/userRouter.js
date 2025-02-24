@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const upload = require("../middlewares/upload");
+const {upload} = require("../middleware/upload");
+const { authenticateToken } = require("../middleware/authMiddleware");
 
 const {
   forgotPassword,
@@ -12,10 +13,11 @@ const {
   logout,
   refreshToken
 } = require("../controller/userController");
+const { validateRequest } = require("../middleware/validateRequest");
 
 // Public routes (no authentication required)
-router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post("/register",validateRequest, registerUser);
+router.post("/login", validateRequest, loginUser);
 router.post("/forgot-pass", forgotPassword);
 router.post("/reset-pass", resetPassword);
 router.post("/refresh-token", refreshToken);

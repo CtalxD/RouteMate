@@ -39,6 +39,7 @@ const registerUser = async (req, res) => {
 };
 
 const loginUser = async (req, res) => {
+  console.log("login controller")
   try {
     const validationResult = loginSchema.safeParse(req.body);
     if (!validationResult.success) {
