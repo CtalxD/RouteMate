@@ -14,7 +14,6 @@ const authorizeRole = (role) => {
 };
 
 const authenticateToken = (req, res, next) => {
-  console.log("middleware auth")
   let token;
   if (
     req?.headers?.authorization &&

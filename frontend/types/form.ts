@@ -15,10 +15,12 @@ export type LoginFormData = {
 };
 
 export type RegisterFormData = {
+  firstName: string;
+  lastName: string;
   email: string;
-  password?: string;
-  confirmPassword?: string;
-  role: 'User';
+  password: string;
+  confirmPassword: string;
+  age: number;
 };
 
 export interface LoginResponse {

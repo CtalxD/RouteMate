@@ -9,13 +9,20 @@ enum Role {
   DRIVER
 }
 
+enum DocumentStatus{
+PENDING
+APPROVED
+REJECTED
+}
+
 model User {
   id         Int       @id @default(autoincrement())
   email      String    @unique
-  fullName   String?
+  firstName  String
+  lastName   String
   profilePic String?
   password   String
-  age        Int?
+  age        Int
   role       Role      @default(USER)
   document   Document? @relation("UserDocument")
   createdAt  DateTime  @default(now())
@@ -23,18 +30,19 @@ model User {
 }
 
 model Document {
-  id             Int      @id @default(autoincrement())
-  licenseNumber  Int
-  blueBookImage  String[]
-  vehicleImage   String[]
+  id            Int      @id @default(autoincrement())
+  licenseNumber Int
+  blueBookImage String[]
+  vehicleImage  String[]
   productionYear Int
-  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  user           User     @relation("UserDocument", fields: [userId], references: [id])
-  userId         Int      @unique
-  adminComment   String? // Optional feedback from admin
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status        DocumentStatus  @default(PENDING)
+  user          User     @relation("UserDocument", fields: [userId], references: [id])
+  userId        Int      @unique
+  adminComment  String?  // Optional feedback from admin
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
+
 
 generator client {
   provider = "prisma-client-js"

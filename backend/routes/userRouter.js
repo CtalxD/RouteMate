@@ -16,8 +16,8 @@ const {
 const { validateRequest } = require("../middleware/validateRequest");
 
 // Public routes (no authentication required)
-router.post("/register",validateRequest, registerUser);
-router.post("/login", validateRequest, loginUser);
+router.post("/register", registerUser);
+router.post("/login", loginUser);
 router.post("/forgot-pass", forgotPassword);
 router.post("/reset-pass", resetPassword);
 router.post("/refresh-token", refreshToken);

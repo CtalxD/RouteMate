@@ -4,7 +4,9 @@ import {asyncStore  } from '@/helper/async.storage.helper';  // Add this import
 import { ACCESS_TOKEN_KEY } from '@/constants';
 
 interface ProfileData {
-  fullName: string;
+  firstName: string;
+  age:Number,
+  lastName:string,
   email: string;
   profilePic?: string;
 }
@@ -33,7 +35,8 @@ export const useGetProfile = () => {
 };
 
 export interface UpdateProfileData {
-  fullName: string;
+  firstName: string;
+  lastName:string;
   profilePic?: string | null;  // Make profilePic optional
 }
 

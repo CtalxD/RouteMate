@@ -15,31 +15,39 @@ const registerUser = async (req, res) => {
     }
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: req.body.email },
+      where: { email: validationResult.data.email },
     });
+
 
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const hashedPassword = await bcrypt.hash(
+      validationResult.data.password,
+      10
+    );
 
     const newUser = {
-      email: req.body.email,
+      email: validationResult.data.email,
       password: hashedPassword,
-      role: req.body.role,
+      role: validationResult.data.role,
+      firstName:validationResult.data.firstName,
+      lastName:validationResult.data.lastName,
+      age:validationResult.data.age
     };
 
     const user = await prisma.user.create({ data: newUser });
 
     res.status(201).json({ user });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
 const loginUser = async (req, res) => {
-  console.log("login controller")
   try {
     const validationResult = loginSchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -63,45 +71,44 @@ const loginUser = async (req, res) => {
     const accessToken = jwt.sign(
       { email: user.email, role: user.role, id: user.id },
       config.jwtSecret,
-      { expiresIn: '15m' }
+      { expiresIn: "15m" }
     );
 
-    const refreshToken = jwt.sign(
-      { id: user.id },
-      config.refreshTokenSecret,
-      { expiresIn: '7d' }
-    );
+    const refreshToken = jwt.sign({ id: user.id }, config.refreshTokenSecret, {
+      expiresIn: "7d",
+    });
 
     // Set cookies with appropriate options
-    res.cookie('access_token', accessToken, {
+    res.cookie("access_token", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'development',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 minutes
+      secure: process.env.NODE_ENV === "development",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
-    res.cookie('refresh_token', refreshToken, {
+    res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'development',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      secure: process.env.NODE_ENV === "development",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-
 
     // Send success response
     res.status(200).json({
       accessToken,
-      refreshToken
+      refreshToken,
     });
   } catch (error) {
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
 const logout = (req, res) => {
   // Clear both cookies
-  res.clearCookie('access_token');
-  res.clearCookie('refresh_token');
+  res.clearCookie("access_token");
+  res.clearCookie("refresh_token");
   res.status(200).json({ message: "Logged out successfully" });
 };
 
@@ -109,18 +116,18 @@ const getUserProfile = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
-        status: 'error',
-        message: "Access token required"
+        status: "error",
+        message: "Access token required",
       });
     }
 
-    const accessToken = authHeader.split(' ')[1];
+    const accessToken = authHeader.split(" ")[1];
     if (!accessToken) {
       return res.status(401).json({
-        status: 'error',
-        message: "Access token is missing"
+        status: "error",
+        message: "Access token is missing",
       });
     }
 
@@ -132,49 +139,48 @@ const getUserProfile = async (req, res) => {
           id: true,
           email: true,
           role: true,
-          fullName:true,
-          profilePic:true
-        }
+          firstName:true,
+          lastName:true,
+          age:true,
+          profilePic: true,
+        },
       });
 
       if (!user) {
         return res.status(404).json({
-          status: 'error',
-          message: "User not found"
+          status: "error",
+          message: "User not found",
         });
       }
 
       return res.status(200).json({
-        data: user
+        data: user,
       });
-
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
+      if (err.name === "TokenExpiredError") {
         return res.status(401).json({
-          status: 'error',
-          code: 'TOKEN_EXPIRED',
-          message: 'Access token has expired. Please refresh token.'
+          status: "error",
+          code: "TOKEN_EXPIRED",
+          message: "Access token has expired. Please refresh token.",
         });
       }
       throw err;
     }
-
   } catch (error) {
-    console.error('Error in getUserProfile:', error);
+    console.error("Error in getUserProfile:", error);
     return res.status(500).json({
-      status: 'error',
+      status: "error",
       message: "Internal server error",
-      error: error.message
+      error: error.message,
     });
   }
 };
 
 const updateUserProfile = async (req, res) => {
-
   const validationResult = userUpdateSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      return res.status(400).json({ errors: validationResult.error.errors });
-    }
+  if (!validationResult.success) {
+    return res.status(400).json({ errors: validationResult.error.errors });
+  }
 
   try {
     const authHeader = req.headers.authorization;
@@ -188,29 +194,28 @@ const updateUserProfile = async (req, res) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, config.jwtSecret);
 
-    const { fullName } = req.body;
+const {profilePic,document,email,firstName,lastName } = validationResult.data
 
-    if (!fullName) {
-      return res.status(400).json({ message: "Full Name is required" });
-    }
-
-    let profilePic;
     if (req.file) {
       // Create full URL for the profile picture
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
       profilePic = `${baseUrl}/uploads/${req.file.filename}`;
     }
 
     const updatedUser = await prisma.user.update({
       where: { id: decoded.id },
       data: {
-        fullName,
+        firstName,
+        lastName,
+        document,
+        email,
         ...(profilePic && { profilePic }), // Store full URL in database
       },
       select: {
         id: true,
         email: true,
-        fullName: true,
+        firstName: true,
+        lastName:true,
         profilePic: true,
         role: true,
       },
@@ -225,38 +230,48 @@ const updateUserProfile = async (req, res) => {
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({ message: "Invalid token" });
     }
-    res.status(500).json({ message: "Internal server error", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
 const resend = new Resend(process.env.RESEND_TOKEN_SECRET);
 
-const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generateCode = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 const forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const verificationCode = generateCode();
 
     try {
       await resend.emails.send({
-        from: 'ctalaryal22@gmail.com',
+        from: "ctalaryal22@gmail.com",
         to: email,
-        subject: 'Password Reset Verification Code',
+        subject: "Password Reset Verification Code",
         text: `Your verification code is: ${verificationCode}`,
       });
 
-      res.status(200).json({ message: 'Verification code sent successfully', verificationCode });
+      res.status(200).json({
+        message: "Verification code sent successfully",
+        verificationCode,
+      });
     } catch (sendError) {
-      console.error('Error sending email:', sendError);
-      return res.status(500).json({ error: 'Failed to send verification code' });
+      console.error("Error sending email:", sendError);
+      return res
+        .status(500)
+        .json({ error: "Failed to send verification code" });
     }
   } catch (error) {
-    console.error('Error in forgotPassword:', error);
-    res.status(500).json({ error: 'An error occurred while requesting password reset' });
+    console.error("Error in forgotPassword:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while requesting password reset" });
   }
 };
 
@@ -268,10 +283,10 @@ const resetPassword = async (req, res) => {
       where: { email },
       data: { password: hashedPassword },
     });
-    res.status(200).json({ message: 'Password reset successful' });
+    res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
-    console.error('Error in resetPassword:', error);
-    res.status(500).json({ error: 'Failed to reset password' });
+    console.error("Error in resetPassword:", error);
+    res.status(500).json({ error: "Failed to reset password" });
   }
 };
 
@@ -280,22 +295,22 @@ const refreshToken = async (req, res) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
-      return res.status(401).json({ 
-        status: 'error',
-        message: 'Refresh token required' 
+      return res.status(401).json({
+        status: "error",
+        message: "Refresh token required",
       });
     }
 
     const decoded = jwt.verify(refreshToken, config.refreshTokenSecret);
-    
+
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id }
+      where: { id: decoded.id },
     });
 
     if (!user) {
-      return res.status(401).json({ 
-        status: 'error',
-        message: 'Invalid refresh token' 
+      return res.status(401).json({
+        status: "error",
+        message: "Invalid refresh token",
       });
     }
 
@@ -303,23 +318,23 @@ const refreshToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { email: user.email, role: user.role, id: user.id },
       config.jwtSecret,
-      { expiresIn: '15m' }
+      { expiresIn: "15m" }
     );
 
     const newRefreshToken = jwt.sign(
       { id: user.id },
       config.refreshTokenSecret,
-      { expiresIn: '7d' }
+      { expiresIn: "7d" }
     );
 
     res.status(200).json({
       accessToken: newAccessToken,
-      refreshToken: newRefreshToken
+      refreshToken: newRefreshToken,
     });
   } catch (error) {
-    res.status(401).json({ 
-      status: 'error',
-      message: 'Invalid refresh token' 
+    res.status(401).json({
+      status: "error",
+      message: "Invalid refresh token",
     });
   }
 };
@@ -329,12 +344,14 @@ const getAllUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       include: {
-        document: true
-      }
+        document: true,
+      },
     });
     res.status(200).json(users);
   } catch (error) {
-    res.status(500).json({ message: "Error fetching users", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error fetching users", error: error.message });
   }
 };
 
@@ -345,18 +362,20 @@ const updateDriverEligibility = async (req, res) => {
   try {
     const user = await prisma.user.update({
       where: { id: parseInt(userId) },
-      data: { isDriverEligible }
+      data: { isDriverEligible },
     });
     res.status(200).json(user);
   } catch (error) {
-    res.status(500).json({ message: "Error updating driver eligibility", error: error.message });
+    res.status(500).json({
+      message: "Error updating driver eligibility",
+      error: error.message,
+    });
   }
 };
 
-
 module.exports = {
   getAllUsers,
-updateDriverEligibility,
+  updateDriverEligibility,
   forgotPassword,
   resetPassword,
   registerUser,

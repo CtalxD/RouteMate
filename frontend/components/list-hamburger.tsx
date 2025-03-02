@@ -122,12 +122,12 @@ const ListHamburger = () => {
               ) : (
                 <View style={styles.profileIcon}>
                   <Text style={styles.profileInitials}>
-                    {profileData?.fullName?.[0]?.toUpperCase() || 'U'}
+                    {profileData?.firstName?.[0]?.toUpperCase() || 'U'}
                   </Text>
                 </View>
               )}
               <Text style={styles.profileText}>
-                {profileData?.fullName || 'User'}
+                {profileData?.firstName || 'User'}
               </Text>
             </View>
             <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>

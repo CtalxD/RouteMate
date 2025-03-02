@@ -10,7 +10,8 @@ interface ProfileProps {
 const Profile = ({ onBack }: ProfileProps) => {
   const { data: profileData, isLoading, isError } = useGetProfile();
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName:"",
     profilePicUri: '',
     profilePicType: '',
     email: '',
@@ -22,10 +23,11 @@ const Profile = ({ onBack }: ProfileProps) => {
   useEffect(() => {
     if (profileData) {
       setFormData({
-        fullName: profileData.fullName || '',
+        firstName: profileData.firstName || '',
         profilePicUri: profileData.profilePic || '',
         profilePicType: '',
         email: profileData.email || '',
+        lastName:profileData.lastName || ""
       });
     }
   }, [profileData]);
@@ -57,15 +59,15 @@ const Profile = ({ onBack }: ProfileProps) => {
   const handleSaveChanges = async () => {
     try {
       setFormError('');
-      const trimmedFullName = formData.fullName.trim();
+      const trimmedfirstName = formData.firstName.trim();
 
-      if (!trimmedFullName) {
-        setFormError('Full Name is required');
+      if (!trimmedfirstName) {
+        setFormError('All fields are required');
         return;
       }
 
       const formDataToSend = new FormData();
-      formDataToSend.append('fullName', trimmedFullName);
+      formDataToSend.append('firstName', trimmedfirstName);
 
       if (formData.profilePicUri && !formData.profilePicUri.startsWith('http')) {
         // Only append if it's a new image (not a URL)
@@ -121,11 +123,20 @@ const Profile = ({ onBack }: ProfileProps) => {
         <Text style={styles.profileTitle}>Edit Profile</Text>
         <TextInput
           style={[styles.input, formError ? styles.inputError : null]}
-          placeholder="Full Name"
-          value={formData.fullName}
+          placeholder="first name"
+          value={formData.firstName}
           onChangeText={(text) => {
             setFormError('');
-            setFormData({ ...formData, fullName: text });
+            setFormData({ ...formData, firstName: text });
+          }}
+        />
+        <TextInput
+          style={[styles.input, formError ? styles.inputError : null]}
+          placeholder="last name"
+          value={formData.lastName}
+          onChangeText={(text) => {
+            setFormError('');
+            setFormData({ ...formData, lastName: text });
           }}
         />
         {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
