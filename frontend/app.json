@@ -1,5 +1,6 @@
 {
   "expo": {
+    "newArchEnabled": true,
     "name": "ceu-app",
     "slug": "ceu-app",
     "version": "1.0.0",
