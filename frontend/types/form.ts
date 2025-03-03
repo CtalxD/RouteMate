@@ -1,12 +1,11 @@
 export type DocumentFormData = {
-  location: string;
-  noOfEmployee: string;
-  company: string;
-  reportingDate: Date | undefined;
-  dailyWorkingHours: string;
-  noOfMaleWorkers: string;
-  totalWorkers: string;
-  observation: string;
+  id: number;
+  licenseNumber: number;
+  blueBookImage: string[];
+  vehicleImage: string[];
+  productionYear: number;
+  userId: number;
+  adminComment?: string;
 };
 
 export type LoginFormData = {
