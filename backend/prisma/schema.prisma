@@ -29,6 +29,12 @@ model User {
   updatedAt  DateTime  @updatedAt
 }
 
+model Admin {
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  password String
+}
+
 model Document {
   id            Int      @id @default(autoincrement())
   licenseNumber Int
