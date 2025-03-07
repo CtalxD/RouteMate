@@ -1,86 +1,103 @@
-import React from "react";
-import { View, StyleSheet, Linking } from "react-native";
-import { Card, Text, Button } from "react-native-paper";
-import { WebView } from "react-native-webview";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet } from "react-native";
+import { io } from "socket.io-client";
+
+type Location = {
+  name: string;
+  lat: number;
+  lng: number;
+};
 
 const ContactMap = () => {
-  const location = {
+  const [zoomLevel] = useState(0.01);
+  const [userLocation, setUserLocation] = useState<Location | null>(null);
+  const [permissionGranted, setPermissionGranted] = useState(false);
+  const socket = io("http://localhost:5000"); // Replace with your server URL
+
+  const defaultLocation: Location = {
     name: "Kathmandu",
     lat: 27.7172,
-    lng: 85.3240,
-    addr: {
-      city: "Kathmandu",
-      country: "Nepal",
-      housenumber: "",
-      postcode: "",
-      street: "Central Kathmandu",
-    },
-    building: "city center",
-    buildingLevels: 0,
+    lng: 85.324,
   };
 
-  // HTML template for Leaflet map
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Leaflet Map</title>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-        <style>
-          #map { height: 100%; width: 100%; }
-        </style>
-      </head>
-      <body>
-        <div id="map"></div>
-        <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-        <script>
-          var map = L.map('map').setView([${location.lat}, ${location.lng}], 15);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-          }).addTo(map);
-          var marker = L.marker([${location.lat}, ${location.lng}]).addTo(map);
-          marker.bindPopup("<b>${location.name}</b><br>${location.addr.street}, ${location.addr.city}").openPopup();
-        </script>
-      </body>
-    </html>
-  `;
+  useEffect(() => {
+    // Request location permission
+    const requestLocationPermission = async () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setPermissionGranted(true);
+          },
+          (error) => {
+            console.error("Error getting location permission:", error);
+            alert("Location permission is required to use this feature.");
+          }
+        );
+      } else {
+        console.error("Geolocation is not supported by this browser.");
+      }
+    };
+
+    requestLocationPermission();
+  }, []);
+
+  useEffect(() => {
+    if (!permissionGranted) return;
+
+    // Watch user's location
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const location = { name: "User", lat: latitude, lng: longitude };
+        setUserLocation(location);
+
+        // Send location to the server
+        socket.emit("updateLocation", location);
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+
+    // Listen for location updates from other users
+    socket.on("newLocation", (location: Location) => {
+      console.log("New location received:", location);
+      // Update the map with the new location
+      // You can add markers or other UI elements here
+    });
+
+    // Cleanup on unmount
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      socket.disconnect();
+    };
+  }, [permissionGranted]);
+
+  const openStreetMapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
+    (userLocation?.lng || defaultLocation.lng) - zoomLevel
+  },${
+    (userLocation?.lat || defaultLocation.lat) - zoomLevel
+  },${
+    (userLocation?.lng || defaultLocation.lng) + zoomLevel
+  },${
+    (userLocation?.lat || defaultLocation.lat) + zoomLevel
+  }&layer=mapnik&marker=${userLocation?.lat || defaultLocation.lat},${
+    userLocation?.lng || defaultLocation.lng
+  }&lang=en`;
 
   return (
     <View style={styles.container}>
-      {/* WebView for Leaflet Map */}
-      <WebView
-        originWhitelist={["*"]}
-        source={{ html: htmlContent }}
-        style={styles.map}
-      />
-
-      {/* Overlay Details */}
-      <Card style={styles.overlay}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.title}>
-            {location.name}
-          </Text>
-          <Text variant="bodyMedium" style={styles.address}>
-            {location.addr.street}, {location.addr.city}
-          </Text>
-          <Text variant="bodySmall" style={styles.subtext}>
-            Building: {location.building}
-          </Text>
-          <Button
-            mode="text"
-            onPress={() => {
-              Linking.openURL(
-                `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`
-              );
-            }}
-            textColor="blue"
-          >
-            Open in Maps
-          </Button>
-        </Card.Content>
-      </Card>
+      {!permissionGranted ? (
+        <p>Please grant location permission to use the map.</p>
+      ) : (
+        <iframe
+          src={openStreetMapUrl}
+          style={styles.map}
+          title="OpenStreetMap"
+          allow="geolocation"
+        />
+      )}
     </View>
   );
 };
@@ -91,31 +108,8 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   map: {
-    height: "100%",
-    width: "100%",
-  },
-  overlay: {
-    position: "absolute",
-    top: 16,
-    left: 16,
-    right: 16,
-    backgroundColor: "white",
-    opacity: 0.9,
-    padding: 8,
-    borderRadius: 8,
-    elevation: 5,
-  },
-  title: {
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  address: {
-    marginBottom: 4,
-    color: "gray",
-  },
-  subtext: {
-    marginBottom: 8,
-    color: "darkgray",
+    flex: 1,
+    zIndex: 1,
   },
 });
 
