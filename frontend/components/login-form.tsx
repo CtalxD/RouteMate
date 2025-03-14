@@ -4,9 +4,7 @@ import { TextInput, Button, Text } from 'react-native-paper';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { MaterialIcons } from '@expo/vector-icons';
-
 import type { LoginFormData } from '../types/form';
-import { COLORS } from '@/constants/colors';
 import { useAuth } from '@/context/auth-context';
 
 const LoginForm = () => {
