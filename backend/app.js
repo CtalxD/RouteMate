@@ -49,7 +49,7 @@ io.on("connection", (socket) => {
     console.log("Received location update:", location);
 
     // Broadcast the location to all connected clients
-    io.emit("newLocation", location);
+    io.emit("newLocation", { ...location, id: socket.id }); // Include socket ID for unique identification
   });
 
   // Handle disconnection
