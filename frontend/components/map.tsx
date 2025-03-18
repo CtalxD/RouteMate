@@ -8,7 +8,8 @@ import DriverVerification from './driver-verification';
 import Booking from './Booking';
 import Settings from './Settings';
 import Icon from 'react-native-vector-icons/Ionicons';
-import Overlay from './overlay'; 
+import Overlay from './overlay';
+import Ticket from './tickets';
 
 type Location = {
   name: string;
@@ -18,11 +19,21 @@ type Location = {
 
 type Suggestion = Location;
 
+type BusRecommendation = {
+  id: string;
+  numberPlate: string;
+  from: string;
+  to: string;
+  departureTime: string;
+  estimatedTime: string;
+  price: string;
+};
+
 const ContactMap = () => {
   const [zoomLevel] = useState(0.01);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [otherLocations, setOtherLocations] = useState<Location[]>([]);
+  const [, setOtherLocations] = useState<Location[]>([]);
   const socket = io("http://localhost:5000"); // Replace with your server URL
 
   const defaultLocation: Location = {
@@ -36,11 +47,13 @@ const ContactMap = () => {
   const [currentPage, setCurrentPage] = useState('Home');
   const [previousPage, setPreviousPage] = useState('Home');
   const [isDriverMode, setIsDriverMode] = useState(false);
-  const [isSearchVisible, setIsSearchVisible] = useState(false); // State for search overlay visibility
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false); // State for bus recommendations overlay
-  const [searchQuery, setSearchQuery] = useState({ from: '', to: '' }); // State for search query
-  const [fromSuggestions, setFromSuggestions] = useState<Suggestion[]>([]); // State for "From" suggestions
-  const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]); // State for "To" suggestions
+  const [isSearchVisible, setIsSearchVisible] = useState(false);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState({ from: '', to: '' });
+  const [fromSuggestions, setFromSuggestions] = useState<Suggestion[]>([]);
+  const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]);
+  const [showTicket, setShowTicket] = useState(false);
+  const [selectedBus, setSelectedBus] = useState<BusRecommendation | null>(null);
   const { onLogout } = useAuth();
 
   const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
@@ -133,18 +146,23 @@ const ContactMap = () => {
   };
 
   const handleSearchIconClick = () => {
-    setIsSearchVisible(true); // Show the search overlay
+    setIsSearchVisible(true);
   };
 
   const closeSearchOverlay = () => {
-    setIsSearchVisible(false); // Hide the search overlay
+    setIsSearchVisible(false);
   };
 
   const handleSearch = () => {
     console.log("From:", searchQuery.from);
     console.log("To:", searchQuery.to);
-    setIsOverlayVisible(true); // Show the bus recommendations overlay
-    setIsSearchVisible(false); // Hide the search overlay
+    setIsOverlayVisible(true);
+    setIsSearchVisible(false);
+  };
+
+  const handleBookNow = (bus: BusRecommendation) => {
+    setSelectedBus(bus);
+    setShowTicket(true);
   };
 
   useEffect(() => {
@@ -156,11 +174,16 @@ const ContactMap = () => {
           },
           (error) => {
             console.error("Error getting location permission:", error);
-            alert("Location permission is required to use this feature.");
+            if (error.code === 1) {
+              alert("Location permission is required to use this feature. Please enable it in your browser settings.");
+            } else {
+              alert("An error occurred while fetching your location. Please try again.");
+            }
           }
         );
       } else {
         console.error("Geolocation is not supported by this browser.");
+        alert("Geolocation is not supported by your browser. Please use a modern browser.");
       }
     };
 
@@ -214,10 +237,14 @@ const ContactMap = () => {
     (userLocation?.lat || defaultLocation.lat) + zoomLevel
   }&layer=mapnik&marker=${userLocation?.lat || defaultLocation.lat},${
     userLocation?.lng || defaultLocation.lng
-  }&lang=en&doubleClickZoom=false`; // Disable double-click zoom
+  }&lang=en&doubleClickZoom=false`;
 
   if (isDriverMode) {
     return <DriverVerification />;
+  }
+
+  if (showTicket && selectedBus) {
+    return <Ticket bus={selectedBus} onBack={() => setShowTicket(false)} />;
   }
 
   if (currentPage === 'Profile') {
@@ -267,11 +294,16 @@ const ContactMap = () => {
 
       {/* Map */}
       {!permissionGranted ? (
-        <Text style={styles.permissionText}>Please grant location permission to use the map.</Text>
+        <Text style={styles.permissionText}>
+          Location permission is required to use the map. Please enable it in your browser settings.
+        </Text>
       ) : (
         <iframe
           src={openStreetMapUrl}
-          style={{ ...styles.map, pointerEvents: menuVisible || isSearchVisible ? 'none' : 'auto' }}
+          style={{
+            ...styles.map,
+            pointerEvents: isSearchVisible || isOverlayVisible ? 'none' : 'auto',
+          }}
           title="OpenStreetMap"
           allow="geolocation"
         />
@@ -279,7 +311,12 @@ const ContactMap = () => {
 
       {/* Search Icon */}
       {permissionGranted && (
-        <TouchableOpacity onPress={handleSearchIconClick} style={styles.searchIconContainer}>
+        <TouchableOpacity
+          onPress={handleSearchIconClick}
+          onPressIn={() => setIsSearchVisible(true)}
+          onPressOut={() => setIsSearchVisible(false)}
+          style={styles.searchIconContainer}
+        >
           <Icon name="search" size={30} color="blue" />
         </TouchableOpacity>
       )}
@@ -289,7 +326,7 @@ const ContactMap = () => {
         <View style={styles.searchOverlay}>
           {/* Close Button */}
           <TouchableOpacity onPress={closeSearchOverlay} style={styles.closeButton}>
-            <Icon name="close" size={24} color="black" />
+            <Icon name="close" size={24} color="black" style={styles.closeIcon} />
           </TouchableOpacity>
 
           {/* From Input */}
@@ -365,6 +402,7 @@ const ContactMap = () => {
         <Overlay
           searchQuery={searchQuery}
           onClose={() => setIsOverlayVisible(false)}
+          onBookNow={handleBookNow}
         />
       )}
 
@@ -602,6 +640,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 15,
+    padding: 5,
+    zIndex: 6,
+  },
+  closeIcon: {
+    color: 'black',
   },
   suggestionsList: {
     maxHeight: 150,
