@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Animated, Easing } from 'react-native';
 import BusDocuments from './busDocuments';  // Import the separate screen component
 import MicroDocuments from './microDocuments';  // Import MicroDocuments component
-import ListHamburger from './list-hamburger'; // Import your ListHamburger component
+import ContactMap from './map';
 
 const DriverVerification = () => {
   const [isDriverSectionOpen, setDriverSectionOpen] = useState(false);
   const [animationHeight] = useState(new Animated.Value(0));
   const [currentScreen, setCurrentScreen] = useState('DriverVerification'); // Track the current screen
   const [currentPage, setCurrentPage] = useState('DriverVerification'); // Track the current page
-  const [previousPage, setPreviousPage] = useState<string | null>(null); // Allow null or string for previousPage
+  const [ , setPreviousPage] = useState<string | null>(null); // Allow null or string for previousPage
 
   const handlePress = () => {
     setDriverSectionOpen(!isDriverSectionOpen);
@@ -32,7 +32,7 @@ const DriverVerification = () => {
   const navigateToHome = () => {
     setPreviousPage(currentPage); // Save current page before navigating to home
     setCurrentPage('Home'); // Switch to the home page
-    setCurrentScreen('ListHamburger'); // Switch to the ListHamburger screen
+    setCurrentScreen('map'); // Switch to the ListHamburger screen
   };
 
   const renderScreen = () => {
@@ -96,8 +96,8 @@ const DriverVerification = () => {
       return <BusDocuments />;  // Render the BusDocuments component when navigating
     } else if (currentScreen === 'MicroDocuments') {
       return <MicroDocuments />;  // Render the MicroDocuments component when navigating
-    } else if (currentScreen === 'ListHamburger') {
-      return <ListHamburger />;  // Render ListHamburger component
+    } else if (currentScreen === 'map') {
+      return <ContactMap/>;  
     }
   };
 
