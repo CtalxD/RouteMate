@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 
 type BusRecommendation = {
   id: string;
-  numberPlate: string; // Changed from busName to numberPlate
+  numberPlate: string;
   from: string;
   to: string;
   departureTime: string;
@@ -15,14 +15,14 @@ type BusRecommendation = {
 type OverlayProps = {
   searchQuery: { from: string; to: string };
   onClose: () => void;
+  onBookNow: (bus: BusRecommendation) => void;
 };
 
-const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
-  // Dummy data for bus recommendations
+const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose, onBookNow }) => {
   const busRecommendations: BusRecommendation[] = [
     {
       id: '1',
-      numberPlate: 'BA 1234', // Example number plate
+      numberPlate: 'BA 1234',
       from: searchQuery.from,
       to: searchQuery.to,
       departureTime: '10:00 AM',
@@ -31,7 +31,7 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
     },
     {
       id: '2',
-      numberPlate: 'PA 5678', // Example number plate
+      numberPlate: 'PA 5678',
       from: searchQuery.from,
       to: searchQuery.to,
       departureTime: '10:30 AM',
@@ -40,7 +40,7 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
     },
     {
       id: '3',
-      numberPlate: 'KA 9101', // Example number plate
+      numberPlate: 'KA 9101',
       from: searchQuery.from,
       to: searchQuery.to,
       departureTime: '11:00 AM',
@@ -51,15 +51,12 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
 
   return (
     <View style={styles.overlayContainer}>
-      {/* Close Button */}
       <TouchableOpacity onPress={onClose} style={styles.closeButton}>
         <Icon name="close" size={24} color="black" />
       </TouchableOpacity>
 
-      {/* Overlay Title */}
       <Text style={styles.overlayTitle}>Bus Recommendations</Text>
 
-      {/* Starting Place and Destination */}
       <View style={styles.routeContainer}>
         <View style={styles.routeItem}>
           <Icon name="location" size={20} color="blue" style={styles.routeIcon} />
@@ -72,11 +69,9 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
         </View>
       </View>
 
-      {/* Bus Recommendations List */}
       <ScrollView style={styles.recommendationsList}>
         {busRecommendations.map((bus) => (
           <View key={bus.id} style={styles.busCard}>
-            {/* Bus Number Plate */}
             <View style={styles.numberPlateContainer}>
               <Text style={styles.numberPlateText}>{bus.numberPlate}</Text>
             </View>
@@ -87,6 +82,12 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
               Departure: {bus.departureTime} | Estimated Time: {bus.estimatedTime}
             </Text>
             <Text style={styles.busPrice}>Price: {bus.price}</Text>
+            <TouchableOpacity
+              style={styles.bookNowButton}
+              onPress={() => onBookNow(bus)}
+            >
+              <Text style={styles.bookNowButtonText}>Book Now</Text>
+            </TouchableOpacity>
           </View>
         ))}
       </ScrollView>
@@ -179,6 +180,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#DB2955',
+  },
+  bookNowButton: {
+    backgroundColor: '#DB2955',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  bookNowButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
