@@ -12,7 +12,10 @@ const io = new Server(server, {
 });
 
 const userRoutes = require("./routes/userRouter");
+const adminRoutes = require("./routes/adminRouter");
 const documentRoute = require("./routes/documentRouter");
+const paymentRoutes = require("./routes/paymentRouter"); // Add this line
+const mapRoutes = require("./routes/mapRouter");
 const cookieParser = require("cookie-parser");
 const { config } = require("./config");
 const cors = require("cors");
@@ -25,7 +28,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
-    origin: "http://localhost:8081", // Replace with your frontend URL
+    origin: ["http://localhost:8081","http://localhost:3000"],
     credentials: true,
   })
 );
@@ -39,6 +42,9 @@ if (!fs.existsSync(uploadDir)) {
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/", userRoutes);
 app.use("", documentRoute);
+app.use("/payment", paymentRoutes); // Add this line
+app.use("/map", mapRoutes);
+app.use("/admin", adminRoutes);
 
 // Socket.io connection handler
 io.on("connection", (socket) => {
