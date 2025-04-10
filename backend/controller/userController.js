@@ -342,11 +342,11 @@ const refreshToken = async (req, res) => {
 //for admin
 const getAllUsers = async (req, res) => {
   try {
-    const users = await prisma.user.findMany({
-      include: {
-        document: true,
-      },
-    });
+    const users = await prisma.user.findMany();
+      // include: {
+      //   document: true,
+      // },
+    // });
     res.status(200).json(users);
   } catch (error) {
     res
