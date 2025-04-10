@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList, Alert, } from "react-native";
 import { io } from "socket.io-client";
-import { useAuth } from '@/context/auth-context';
-import Profile from './Profile';
-import { useGetProfile } from '@/services/profile.service';
-import DriverVerification from './driver-verification';
-import Booking from './Booking';
-import Settings from './Settings';
-import Icon from 'react-native-vector-icons/Ionicons';
-import Overlay from './overlay';
-import Ticket from './tickets';
+import { useAuth } from "@/context/auth-context";
+import Profile from "./Profile";
+import { useGetProfile } from "@/services/profile.service";
+import DriverVerification from "./driver-verification";
+import Booking from "./Booking";
+import Settings from "./Settings";
+import Icon from "react-native-vector-icons/Ionicons";
+import Overlay from "./overlay";
+import Ticket from "./tickets";
 
 type Location = {
   name: string;
@@ -44,22 +44,26 @@ const ContactMap = () => {
 
   const { data: profileData } = useGetProfile();
   const [menuVisible, setMenuVisible] = useState(false);
-  const [currentPage, setCurrentPage] = useState('Home');
-  const [previousPage, setPreviousPage] = useState('Home');
+  const [currentPage, setCurrentPage] = useState("Home");
+  const [previousPage, setPreviousPage] = useState("Home");
   const [isDriverMode, setIsDriverMode] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState({ from: '', to: '' });
+  const [searchQuery, setSearchQuery] = useState({ from: "", to: "" });
   const [fromSuggestions, setFromSuggestions] = useState<Suggestion[]>([]);
   const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]);
   const [showTicket, setShowTicket] = useState(false);
   const [selectedBus, setSelectedBus] = useState<BusRecommendation | null>(null);
   const { onLogout } = useAuth();
 
-  const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
+  const fetchLocationSuggestions = async (
+    query: string
+  ): Promise<Suggestion[]> => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          query
+        )}`
       );
       const data = await response.json();
       return data.map((item: any) => ({
@@ -94,7 +98,7 @@ const ContactMap = () => {
   };
 
   const handleSuggestionPress = (field: string, suggestion: Suggestion) => {
-    if (field === 'from') {
+    if (field === "from") {
       setSearchQuery({ ...searchQuery, from: suggestion.name });
       setFromSuggestions([]);
     } else {
@@ -114,25 +118,25 @@ const ContactMap = () => {
 
   const navigateToProfile = () => {
     setPreviousPage(currentPage);
-    setCurrentPage('Profile');
+    setCurrentPage("Profile");
     setMenuVisible(false);
   };
 
   const navigateToBooking = () => {
     setPreviousPage(currentPage);
-    setCurrentPage('Booking');
+    setCurrentPage("Booking");
     setMenuVisible(false);
   };
 
   const navigateToHome = () => {
     setPreviousPage(currentPage);
-    setCurrentPage('Home');
+    setCurrentPage("Home");
     setMenuVisible(false);
   };
 
   const navigateToSettings = () => {
     setPreviousPage(currentPage);
-    setCurrentPage('Settings');
+    setCurrentPage("Settings");
     setMenuVisible(false);
   };
 
@@ -165,6 +169,39 @@ const ContactMap = () => {
     setShowTicket(true);
   };
 
+  const handlePayNow = async (totalPrice: string, passengerNames: string[]) => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/payment/initiate-payment",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            amount: parseFloat(totalPrice),
+            mobile: "9862732725", // Replace with actual mobile number
+            purchase_order_id: selectedBus?.id,
+            purchase_order_name: `Bus Ticket for ${selectedBus?.from} to ${selectedBus?.to}`,
+            passengerNames,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Redirect to Khalti payment page
+        window.location.href = data.data.payment_url;
+      } else {
+        Alert.alert("Payment initiation failed"); // Use Alert.alert here
+      }
+    } catch (error) {
+      console.error("Error initiating payment:", error);
+      Alert.alert("Payment initiation failed"); // Use Alert.alert here
+    }
+  };
+
   useEffect(() => {
     const requestLocationPermission = async () => {
       if (navigator.geolocation) {
@@ -175,15 +212,21 @@ const ContactMap = () => {
           (error) => {
             console.error("Error getting location permission:", error);
             if (error.code === 1) {
-              alert("Location permission is required to use this feature. Please enable it in your browser settings.");
+              alert(
+                "Location permission is required to use this feature. Please enable it in your browser settings."
+              );
             } else {
-              alert("An error occurred while fetching your location. Please try again.");
+              alert(
+                "An error occurred while fetching your location. Please try again."
+              );
             }
           }
         );
       } else {
         console.error("Geolocation is not supported by this browser.");
-        alert("Geolocation is not supported by your browser. Please use a modern browser.");
+        alert(
+          "Geolocation is not supported by your browser. Please use a modern browser."
+        );
       }
     };
 
@@ -210,7 +253,9 @@ const ContactMap = () => {
     socket.on("newLocation", (location: Location) => {
       console.log("New location received:", location);
       setOtherLocations((prevLocations) => {
-        const existingLocationIndex = prevLocations.findIndex((loc) => loc.name === location.name);
+        const existingLocationIndex = prevLocations.findIndex(
+          (loc) => loc.name === location.name
+        );
         if (existingLocationIndex !== -1) {
           const updatedLocations = [...prevLocations];
           updatedLocations[existingLocationIndex] = location;
@@ -244,10 +289,15 @@ const ContactMap = () => {
   }
 
   if (showTicket && selectedBus) {
-    return <Ticket bus={selectedBus} onBack={() => setShowTicket(false)} />;
+    return (
+      <Ticket
+        bus={selectedBus}
+        onBack={() => setShowTicket(false)}
+      />
+    );
   }
 
-  if (currentPage === 'Profile') {
+  if (currentPage === "Profile") {
     return (
       <View style={styles.container}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -260,7 +310,7 @@ const ContactMap = () => {
     );
   }
 
-  if (currentPage === 'Booking') {
+  if (currentPage === "Booking") {
     return (
       <View style={styles.container}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -271,7 +321,7 @@ const ContactMap = () => {
     );
   }
 
-  if (currentPage === 'Settings') {
+  if (currentPage === "Settings") {
     return (
       <View style={styles.container}>
         <TouchableOpacity onPress={handleBack} style={styles.backButtonSettings}>
@@ -295,14 +345,15 @@ const ContactMap = () => {
       {/* Map */}
       {!permissionGranted ? (
         <Text style={styles.permissionText}>
-          Location permission is required to use the map. Please enable it in your browser settings.
+          Location permission is required to use the map. Please enable it in
+          your browser settings.
         </Text>
       ) : (
         <iframe
           src={openStreetMapUrl}
           style={{
             ...styles.map,
-            pointerEvents: isSearchVisible || isOverlayVisible ? 'none' : 'auto',
+            pointerEvents: isSearchVisible || isOverlayVisible ? "none" : "auto",
           }}
           title="OpenStreetMap"
           allow="geolocation"
@@ -349,7 +400,7 @@ const ContactMap = () => {
               renderItem={({ item }: { item: Suggestion }) => (
                 <TouchableOpacity
                   style={styles.suggestionItem}
-                  onPress={() => handleSuggestionPress('from', item)}
+                  onPress={() => handleSuggestionPress("from", item)}
                 >
                   <Text style={styles.suggestionText}>{item.name}</Text>
                 </TouchableOpacity>
@@ -381,7 +432,7 @@ const ContactMap = () => {
               renderItem={({ item }: { item: Suggestion }) => (
                 <TouchableOpacity
                   style={styles.suggestionItem}
-                  onPress={() => handleSuggestionPress('to', item)}
+                  onPress={() => handleSuggestionPress("to", item)}
                 >
                   <Text style={styles.suggestionText}>{item.name}</Text>
                 </TouchableOpacity>
@@ -412,19 +463,19 @@ const ContactMap = () => {
           <View style={styles.menuHeader}>
             <View style={styles.profileContainer}>
               {profileData?.profilePic ? (
-                <Image 
-                  source={{ uri: profileData.profilePic }} 
-                  style={styles.profileIcon} 
+                <Image
+                  source={{ uri: profileData.profilePic }}
+                  style={styles.profileIcon}
                 />
               ) : (
                 <View style={styles.profileIcon}>
                   <Text style={styles.profileInitials}>
-                    {profileData?.firstName?.[0]?.toUpperCase() || 'U'}
+                    {profileData?.firstName?.[0]?.toUpperCase() || "U"}
                   </Text>
                 </View>
               )}
               <Text style={styles.profileText}>
-                {profileData?.firstName || 'User'}
+                {profileData?.firstName || "User"}
               </Text>
             </View>
             <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>

@@ -23,6 +23,7 @@ const RegisterForm = () => {
       age: undefined,
       password: '',
       confirmPassword: '',
+      // role: 'user', //enum jun chai driver user
     },
   });
 

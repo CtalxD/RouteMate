@@ -6,7 +6,7 @@ const List = () => {
   return (
     <SafeAreaScrollableView>
       {/* < ListHamburger/> */}
-          <ContactMap/>
+      <ContactMap />
     </SafeAreaScrollableView>
   );
 };

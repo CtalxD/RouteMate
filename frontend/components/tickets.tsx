@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Khalti from './Khalti';
 
 type BusRecommendation = {
   id: string;
@@ -18,22 +19,20 @@ type TicketProps = {
 };
 
 const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
-  const [numberOfTickets, setNumberOfTickets] = useState(1);
+  const [numberOfTickets, setNumberOfTickets] = useState<number>(1);
   const [passengerNames, setPassengerNames] = useState<string[]>(['']);
 
-  const calculateTotalPrice = () => {
-    const pricePerTicket = parseFloat(bus.price.replace('$', ''));
-    return `$${(pricePerTicket * numberOfTickets).toFixed(2)}`;
+  const calculateTotalPrice = (): string => {
+    const pricePerTicket = parseFloat(bus.price.replace('Rs', '').trim());
+    return (pricePerTicket * numberOfTickets).toFixed(2);
   };
 
   const handleNumberOfTicketsChange = (newCount: number) => {
+    if (newCount < 1) return;
     setNumberOfTickets(newCount);
-    // Adjust the passengerNames array based on the new count
     if (newCount > passengerNames.length) {
-      // Add empty strings for new passengers
       setPassengerNames([...passengerNames, ...Array(newCount - passengerNames.length).fill('')]);
     } else {
-      // Remove extra passenger names
       setPassengerNames(passengerNames.slice(0, newCount));
     }
   };
@@ -42,6 +41,29 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
     const newPassengerNames = [...passengerNames];
     newPassengerNames[index] = value;
     setPassengerNames(newPassengerNames);
+  };
+
+  const validatePassengerNames = (): boolean => {
+    return passengerNames.every(name => name.trim().length > 0);
+  };
+
+  const handlePayment = () => {
+    if (!validatePassengerNames()) {
+      Alert.alert('Validation Error', 'Please enter names for all passengers');
+      return;
+    }
+
+    const totalPrice = calculateTotalPrice();
+    console.log('Proceeding to payment for amount:', totalPrice);
+  };
+
+  const handlePaymentSuccess = () => {
+    Alert.alert('Success', 'Your payment was successful!');
+    // Add any post-payment success logic here
+  };
+
+  const handlePaymentError = (error: string) => {
+    Alert.alert('Payment Error', error);
   };
 
   return (
@@ -53,7 +75,6 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
       <View style={styles.ticketContainer}>
         <Text style={styles.ticketTitle}>Your Ticket</Text>
 
-        {/* Passenger Name Inputs */}
         {Array.from({ length: numberOfTickets }).map((_, index) => (
           <TextInput
             key={index}
@@ -64,7 +85,6 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
           />
         ))}
 
-        {/* Ticket Details */}
         <View style={styles.detailsContainer}>
           <Text style={styles.detailLabel}>Bus Number:</Text>
           <Text style={styles.detailValue}>{bus.numberPlate}</Text>
@@ -86,13 +106,12 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
           <Text style={styles.detailValue}>{bus.estimatedTime}</Text>
         </View>
 
-        {/* Number of Tickets Counter */}
         <View style={styles.ticketCounter}>
           <Text style={styles.detailLabel}>Number of Tickets:</Text>
           <View style={styles.counterButtons}>
             <TouchableOpacity
               style={styles.counterButton}
-              onPress={() => handleNumberOfTicketsChange(Math.max(1, numberOfTickets - 1))}
+              onPress={() => handleNumberOfTicketsChange(numberOfTickets - 1)}
             >
               <Ionicons name="remove" size={20} color="black" />
             </TouchableOpacity>
@@ -106,16 +125,16 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
           </View>
         </View>
 
-        {/* Total Price */}
         <View style={styles.detailsContainer}>
           <Text style={styles.detailLabel}>Total Price:</Text>
-          <Text style={styles.detailValue}>{calculateTotalPrice()}</Text>
+          <Text style={styles.detailValue}>Rs {calculateTotalPrice()}</Text>
         </View>
-
-        {/* Pay Now Button */}
-        <TouchableOpacity style={styles.payNowButton}>
-          <Text style={styles.payNowButtonText}>Pay Now</Text>
-        </TouchableOpacity>
+        
+        <Khalti 
+          payment={parseFloat(calculateTotalPrice())} 
+          onSuccess={handlePaymentSuccess}
+          onError={handlePaymentError}
+        />
       </View>
     </View>
   );
@@ -187,18 +206,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginHorizontal: 10,
-  },
-  payNowButton: {
-    backgroundColor: '#0f4b5c',
-    paddingVertical: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  payNowButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
   },
 });
 

@@ -11,6 +11,7 @@ const {
   getUserProfile,
   updateUserProfile,
   logout,
+  getAllUsers,
   refreshToken
 } = require("../controller/userController");
 const { validateRequest } = require("../middleware/validateRequest");
@@ -26,5 +27,6 @@ router.post("/refresh-token", refreshToken);
 router.get("/profile", authenticateToken, getUserProfile);
 router.put("/profile", authenticateToken, upload.single("profilePic"), updateUserProfile);
 router.post("/logout", authenticateToken, logout);
+router.get("/getAllUsers", getAllUsers);
 
 module.exports = router;
