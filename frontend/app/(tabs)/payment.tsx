@@ -2,7 +2,7 @@ import Ticket from '@/components/tickets';
 import SafeAreaScrollableView from '@/components/safe-area-scrollable-view';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
-const payment = () => {
+const Payment = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -49,6 +49,14 @@ const payment = () => {
     router.back();
   };
 
+  return (
+    <SafeAreaScrollableView>
+      <Ticket 
+        bus={mockBus}
+        onBack={handleBack}
+      />
+    </SafeAreaScrollableView>
+  );
 };
 
-export default payment;
+export default Payment;
