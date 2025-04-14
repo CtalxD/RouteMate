@@ -71,7 +71,7 @@ const loginUser = async (req, res) => {
     const accessToken = jwt.sign(
       { email: user.email, role: user.role, id: user.id },
       config.jwtSecret,
-      { expiresIn: "15m" }
+      { expiresIn: "115m" }
     );
 
     const refreshToken = jwt.sign({ id: user.id }, config.refreshTokenSecret, {
@@ -318,7 +318,7 @@ const refreshToken = async (req, res) => {
     const newAccessToken = jwt.sign(
       { email: user.email, role: user.role, id: user.id },
       config.jwtSecret,
-      { expiresIn: "15m" }
+      { expiresIn: "115m" }
     );
 
     const newRefreshToken = jwt.sign(

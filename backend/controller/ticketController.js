@@ -1,5 +1,5 @@
-const { PrismaClient } = require("@prisma/client")
-const prisma = new PrismaClient()
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 const createTicket = async (req, res) => {
   try {
@@ -31,7 +31,9 @@ const createTicket = async (req, res) => {
         departureTime,
         estimatedTime,
         totalPrice: Number.parseFloat(totalPrice),
-        passengerNames,
+        passengerNames: {
+          set: passengerNames // Store as an array of names
+        },
         paymentStatus,
       },
     });
@@ -51,4 +53,26 @@ const createTicket = async (req, res) => {
   }
 }
 
-module.exports = { createTicket }
+const getTickets = async (req, res) => {
+  try {
+    const tickets = await prisma.ticket.findMany({
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: tickets,
+    });
+  } catch (error) {
+    console.error("Error fetching tickets:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch tickets",
+      error: error.message,
+    });
+  }
+}
+
+module.exports = { createTicket, getTickets };
