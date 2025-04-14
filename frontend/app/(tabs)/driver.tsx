@@ -1,12 +1,12 @@
-import ContactMap from '@/components/map';
+import DriverUI from '@/components/Driver/driverUI';
 import SafeAreaScrollableView from '@/components/safe-area-scrollable-view';
 
-const List = () => {
+const Driverpanel = () => {
   return (
     <SafeAreaScrollableView>
-      <ContactMap />
+      <DriverUI />
     </SafeAreaScrollableView>
   );
 };
 
-export default List;
+export default Driverpanel;

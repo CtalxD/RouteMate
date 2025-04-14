@@ -1,12 +1,12 @@
-import ContactMap from '@/components/map';
+import BusDocuments from '@/components/busDocuments';
 import SafeAreaScrollableView from '@/components/safe-area-scrollable-view';
 
-const List = () => {
+const busdocs = () => {
   return (
     <SafeAreaScrollableView>
-      <ContactMap />
+      <BusDocuments />
     </SafeAreaScrollableView>
   );
 };
 
-export default List;
+export default busdocs;

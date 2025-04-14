@@ -22,7 +22,7 @@ const initiatePayment = async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`, // Use environment variable
+          Authorization: `Key ${process.env.KHALTI_SECRET_KEY}`,
         },
       }
     );

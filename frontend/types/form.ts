@@ -1,11 +1,9 @@
 export type DocumentFormData = {
-  id: number;
-  licenseNumber: number;
-  blueBookImage: string[];
-  vehicleImage: string[];
-  productionYear: number;
-  userId: number;
-  adminComment?: string;
+  licenseNumber: string;
+  productionYear: string;
+  blueBookImages: string[];
+  vehicleImages: string[];
+  userId: string;
 };
 
 export type LoginFormData = {

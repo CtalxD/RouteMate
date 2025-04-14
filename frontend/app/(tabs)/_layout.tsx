@@ -5,6 +5,9 @@ const TabLayout = () => {
     <Stack>
       <Stack.Screen name="lists" options={{ headerShown: false }} />
       <Stack.Screen name="map" options={{ headerShown: false }} />
+      <Stack.Screen name="driver" options={{ headerShown: false }} />
+      <Stack.Screen name="busdocs" options={{ headerShown: false }} />
+      <Stack.Screen name="payment" options={{ headerShown: false }} />
     </Stack>
   );
 };

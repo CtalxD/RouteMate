@@ -1,3 +1,5 @@
+//backend/utils/documentSchema.js
+
 const { z } = require("zod");
 
 // Base validation for file paths
@@ -34,9 +36,9 @@ const createDocumentSchema = z.object({
     .array(filePathSchema)
     .min(1, "At least one vehicle image is required")
     .max(5, "Maximum 5 vehicle images allowed"),
-
-  userId: z.number().int().positive("User ID must be a positive integer")
-}).strict();
+  userId: z.number().int().positive("User ID must be a positive integer"),
+  status: DocumentStatus.optional().default("PENDING"),
+})
 
 // Schema for updating document status by admin
 const updateDocumentStatusSchema = z.object({

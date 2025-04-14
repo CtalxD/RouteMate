@@ -35,6 +35,13 @@ model Admin {
   password String
 }
 
+model Bus {
+  busId     String   @id @default(uuid())
+  busNumber String   @unique @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Document {
   id            Int      @id @default(autoincrement())
   licenseNumber Int
@@ -49,6 +56,19 @@ model Document {
   updatedAt     DateTime @updatedAt
 }
 
+model Ticket {
+  id             String   @id @default(uuid())
+  busNumberPlate String   
+  from           String  
+  to             String  
+  departureTime  String   
+  estimatedTime  String   
+  numberOfTickets Int     
+  totalPrice     Float 
+  passengerNames String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
 
 generator client {
   provider = "prisma-client-js"

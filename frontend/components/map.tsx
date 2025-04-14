@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList, Alert, } from "react-native";
-import { io } from "socket.io-client";
+import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList, Alert } from "react-native";
 import { useAuth } from "@/context/auth-context";
 import Profile from "./Profile";
 import { useGetProfile } from "@/services/profile.service";
-import DriverVerification from "./driver-verification";
 import Booking from "./Booking";
 import Settings from "./Settings";
 import Icon from "react-native-vector-icons/Ionicons";
 import Overlay from "./overlay";
 import Ticket from "./tickets";
+import BusDocuments from "./busDocuments";
+import { useRouter } from "expo-router";
 
 type Location = {
   name: string;
@@ -30,11 +30,10 @@ type BusRecommendation = {
 };
 
 const ContactMap = () => {
+  const router = useRouter();
   const [zoomLevel] = useState(0.01);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [, setOtherLocations] = useState<Location[]>([]);
-  const socket = io("http://localhost:5000"); // Replace with your server URL
 
   const defaultLocation: Location = {
     name: "Kathmandu",
@@ -46,7 +45,6 @@ const ContactMap = () => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("Home");
   const [previousPage, setPreviousPage] = useState("Home");
-  const [isDriverMode, setIsDriverMode] = useState(false);
   const [isSearchVisible, setIsSearchVisible] = useState(false);
   const [isOverlayVisible, setIsOverlayVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState({ from: "", to: "" });
@@ -56,14 +54,10 @@ const ContactMap = () => {
   const [selectedBus, setSelectedBus] = useState<BusRecommendation | null>(null);
   const { onLogout } = useAuth();
 
-  const fetchLocationSuggestions = async (
-    query: string
-  ): Promise<Suggestion[]> => {
+  const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query
-        )}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
       );
       const data = await response.json();
       return data.map((item: any) => ({
@@ -140,13 +134,13 @@ const ContactMap = () => {
     setMenuVisible(false);
   };
 
-  const handleBack = () => {
-    setCurrentPage(previousPage);
+  const switchToDriverMode = () => {
+    setMenuVisible(false);
+    router.push("/busdocs");
   };
 
-  const switchToDriverMode = () => {
-    setIsDriverMode(true);
-    setMenuVisible(false);
+  const handleBack = () => {
+    setCurrentPage(previousPage);
   };
 
   const handleSearchIconClick = () => {
@@ -171,34 +165,30 @@ const ContactMap = () => {
 
   const handlePayNow = async (totalPrice: string, passengerNames: string[]) => {
     try {
-      const response = await fetch(
-        "http://localhost:5000/payment/initiate-payment",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            amount: parseFloat(totalPrice),
-            mobile: "9862732725", // Replace with actual mobile number
-            purchase_order_id: selectedBus?.id,
-            purchase_order_name: `Bus Ticket for ${selectedBus?.from} to ${selectedBus?.to}`,
-            passengerNames,
-          }),
-        }
-      );
+      const response = await fetch("http://localhost:5000/payment/initiate-payment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: parseFloat(totalPrice),
+          mobile: "9862732725",
+          purchase_order_id: selectedBus?.id,
+          purchase_order_name: `Bus Ticket for ${selectedBus?.from} to ${selectedBus?.to}`,
+          passengerNames,
+        }),
+      });
 
       const data = await response.json();
 
       if (data.success) {
-        // Redirect to Khalti payment page
         window.location.href = data.data.payment_url;
       } else {
-        Alert.alert("Payment initiation failed"); // Use Alert.alert here
+        Alert.alert("Payment initiation failed");
       }
     } catch (error) {
       console.error("Error initiating payment:", error);
-      Alert.alert("Payment initiation failed"); // Use Alert.alert here
+      Alert.alert("Payment initiation failed");
     }
   };
 
@@ -208,6 +198,8 @@ const ContactMap = () => {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             setPermissionGranted(true);
+            const { latitude, longitude } = position.coords;
+            setUserLocation({ name: "User", lat: latitude, lng: longitude });
           },
           (error) => {
             console.error("Error getting location permission:", error);
@@ -233,45 +225,6 @@ const ContactMap = () => {
     requestLocationPermission();
   }, []);
 
-  useEffect(() => {
-    if (!permissionGranted) return;
-
-    const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const location = { name: "User", lat: latitude, lng: longitude };
-        setUserLocation(location);
-
-        socket.emit("updateLocation", location);
-      },
-      (error) => {
-        console.error("Error getting location:", error);
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-
-    socket.on("newLocation", (location: Location) => {
-      console.log("New location received:", location);
-      setOtherLocations((prevLocations) => {
-        const existingLocationIndex = prevLocations.findIndex(
-          (loc) => loc.name === location.name
-        );
-        if (existingLocationIndex !== -1) {
-          const updatedLocations = [...prevLocations];
-          updatedLocations[existingLocationIndex] = location;
-          return updatedLocations;
-        } else {
-          return [...prevLocations, location];
-        }
-      });
-    });
-
-    return () => {
-      navigator.geolocation.clearWatch(watchId);
-      socket.disconnect();
-    };
-  }, [permissionGranted]);
-
   const openStreetMapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
     (userLocation?.lng || defaultLocation.lng) - zoomLevel
   },${
@@ -284,9 +237,59 @@ const ContactMap = () => {
     userLocation?.lng || defaultLocation.lng
   }&lang=en&doubleClickZoom=false`;
 
-  if (isDriverMode) {
-    return <DriverVerification />;
-  }
+  const renderHamburgerButton = () => (
+    <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
+      <View style={styles.outsideBar} />
+      <View style={styles.outsideBar} />
+      <View style={styles.outsideBar} />
+    </TouchableOpacity>
+  );
+
+  const renderMenu = () => (
+    <View style={styles.menuContainer}>
+      <View style={styles.menuHeader}>
+        <View style={styles.profileContainer}>
+          {profileData?.profilePic ? (
+            <Image
+              source={{ uri: profileData.profilePic }}
+              style={styles.profileIcon}
+            />
+          ) : (
+            <View style={styles.profileIcon}>
+              <Text style={styles.profileInitials}>
+                {profileData?.firstName?.[0]?.toUpperCase() || "U"}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.profileText}>
+            {profileData?.firstName || "User"}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={toggleMenu}>
+          <Icon name="close" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity onPress={navigateToHome} style={styles.menuItem}>
+        <Text style={styles.menuText}>Home</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={navigateToProfile} style={styles.menuItem}>
+        <Text style={styles.menuText}>Profile</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={navigateToBooking} style={styles.menuItem}>
+        <Text style={styles.menuText}>Booking</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={navigateToSettings} style={styles.menuItem}>
+        <Text style={styles.menuText}>Settings</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
+        <Text style={styles.menuText}>Logout</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={switchToDriverMode} style={styles.driverButton}>
+        <Text style={styles.driverButtonText}>Switch to Driver Mode</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (showTicket && selectedBus) {
     return (
@@ -306,6 +309,7 @@ const ContactMap = () => {
         <View style={styles.profileDetails}>
           <Profile onBack={handleBack} />
         </View>
+        {menuVisible && renderMenu()}
       </View>
     );
   }
@@ -317,6 +321,7 @@ const ContactMap = () => {
           <Icon name="arrow-back" size={30} color="black" />
         </TouchableOpacity>
         <Booking />
+        {menuVisible && renderMenu()}
       </View>
     );
   }
@@ -329,20 +334,15 @@ const ContactMap = () => {
           <Text style={styles.settingsText}>Settings</Text>
         </TouchableOpacity>
         <Settings />
+        {menuVisible && renderMenu()}
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Hamburger Menu Button */}
-      <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
-        <View style={styles.outsideBar} />
-        <View style={styles.outsideBar} />
-        <View style={styles.outsideBar} />
-      </TouchableOpacity>
+      {renderHamburgerButton()}
 
-      {/* Map */}
       {!permissionGranted ? (
         <Text style={styles.permissionText}>
           Location permission is required to use the map. Please enable it in
@@ -360,27 +360,21 @@ const ContactMap = () => {
         />
       )}
 
-      {/* Search Icon */}
       {permissionGranted && (
         <TouchableOpacity
           onPress={handleSearchIconClick}
-          onPressIn={() => setIsSearchVisible(true)}
-          onPressOut={() => setIsSearchVisible(false)}
           style={styles.searchIconContainer}
         >
           <Icon name="search" size={30} color="blue" />
         </TouchableOpacity>
       )}
 
-      {/* Search Overlay */}
       {isSearchVisible && (
         <View style={styles.searchOverlay}>
-          {/* Close Button */}
           <TouchableOpacity onPress={closeSearchOverlay} style={styles.closeButton}>
             <Icon name="close" size={24} color="black" style={styles.closeIcon} />
           </TouchableOpacity>
 
-          {/* From Input */}
           <View style={styles.inputContainer}>
             <Icon name="location" size={20} color="blue" style={styles.inputIcon} />
             <TextInput
@@ -392,7 +386,6 @@ const ContactMap = () => {
             />
           </View>
 
-          {/* From Suggestions */}
           {fromSuggestions.length > 0 && (
             <FlatList
               data={fromSuggestions}
@@ -409,10 +402,8 @@ const ContactMap = () => {
             />
           )}
 
-          {/* Divider Line */}
           <View style={styles.dividerLine} />
 
-          {/* To Input */}
           <View style={styles.inputContainer}>
             <Icon name="location" size={20} color="red" style={styles.inputIcon} />
             <TextInput
@@ -424,7 +415,6 @@ const ContactMap = () => {
             />
           </View>
 
-          {/* To Suggestions */}
           {toSuggestions.length > 0 && (
             <FlatList
               data={toSuggestions}
@@ -441,67 +431,25 @@ const ContactMap = () => {
             />
           )}
 
-          {/* Search Button */}
           <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
             <Text style={styles.searchButtonText}>Search</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Bus Recommendations Overlay */}
       {isOverlayVisible && (
         <Overlay
           searchQuery={searchQuery}
-          onClose={() => setIsOverlayVisible(false)}
-          onBookNow={handleBookNow}
+          onClose={() => {
+            setIsOverlayVisible(false);
+            setSearchQuery({ from: "", to: "" });
+            setFromSuggestions([]);
+            setToSuggestions([]);
+          }}
         />
       )}
 
-      {/* Menu Overlay */}
-      {menuVisible && (
-        <View style={styles.menuContainer}>
-          <View style={styles.menuHeader}>
-            <View style={styles.profileContainer}>
-              {profileData?.profilePic ? (
-                <Image
-                  source={{ uri: profileData.profilePic }}
-                  style={styles.profileIcon}
-                />
-              ) : (
-                <View style={styles.profileIcon}>
-                  <Text style={styles.profileInitials}>
-                    {profileData?.firstName?.[0]?.toUpperCase() || "U"}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.profileText}>
-                {profileData?.firstName || "User"}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity onPress={navigateToHome} style={styles.menuItem}>
-            <Text style={styles.menuText}>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={navigateToProfile} style={styles.menuItem}>
-            <Text style={styles.menuText}>Profile</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={navigateToBooking} style={styles.menuItem}>
-            <Text style={styles.menuText}>Booking</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={navigateToSettings} style={styles.menuItem}>
-            <Text style={styles.menuText}>Settings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={styles.menuItem}>
-            <Text style={styles.menuText}>Logout</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={switchToDriverMode} style={styles.driverButton}>
-            <Text style={styles.driverButtonText}>Switch to Driver Mode</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {menuVisible && renderMenu()}
     </View>
   );
 };
@@ -552,7 +500,7 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#082A3F',
     padding: 20,
-    zIndex: 2,
+    zIndex: 10,
     elevation: 5,
   },
   menuHeader: {
@@ -595,21 +543,27 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   backButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 3,
     padding: 10,
-    borderRadius: 4,
-    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 5,
   },
   backButtonSettings: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 3,
     padding: 10,
-    borderRadius: 4,
-    marginBottom: 10,
-    marginLeft: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
   },
   settingsText: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '600',
     color: 'black',
     marginLeft: 10,
@@ -620,6 +574,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '100%',
     alignItems: 'center',
+    marginTop: 60,
   },
   driverButton: {
     padding: 10,

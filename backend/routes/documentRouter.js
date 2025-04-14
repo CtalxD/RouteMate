@@ -1,27 +1,26 @@
 const express = require("express");
 const router = express.Router();
-const { authorizeRole } = require("../middleware/authMiddleware");
+const { authenticateToken, authorizeRole } = require("../middleware/authMiddleware");
 const { multipleUpload } = require("../middleware/upload");
-const { createDocumentSchema } = require("../utils/documentSchema");
-const { validateRequest } = require("../middleware/validateRequest");
 const {
-  createDocument,
-  getAllDocuments,
-  getDocumentById,
-  updateDocument,
-  deleteDocument,
+    createDocument,
+    getAllDocuments,
+    getDocumentById,
+    updateDocument,
+    deleteDocument,
+    approveDocument,
+    rejectDocument
 } = require("../controller/documentController");
 
-router.post(
-  "/",
-  authorizeRole,
-  validateRequest(createDocumentSchema),
-  multipleUpload,
-  createDocument
-);
-router.get("/", authorizeRole, getAllDocuments);
-router.get("/:id", authorizeRole, getDocumentById);
-router.put("/:id", authorizeRole, multipleUpload, updateDocument);
-router.delete("/:id", authorizeRole, deleteDocument);
+// Document submission by users
+router.post("/", authenticateToken, multipleUpload, createDocument);
+
+// Admin document management routes
+router.get("/", authenticateToken, authorizeRole('ADMIN'), getAllDocuments);
+router.get("/:id", authenticateToken, authorizeRole('ADMIN'), getDocumentById);
+router.put("/:id", authenticateToken, authorizeRole('ADMIN'), multipleUpload, updateDocument);
+router.delete("/:id", authenticateToken, authorizeRole('ADMIN'), deleteDocument);
+router.put("/:id/approve", authenticateToken, authorizeRole('ADMIN'), approveDocument);
+router.put("/:id/reject", authenticateToken, authorizeRole('ADMIN'), rejectDocument);
 
 module.exports = router;

@@ -1,46 +1,98 @@
-const axios = require("axios");
+// controllers/drivermapController.js
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-const getRoute = async (req, res) => {
+// Update driver's location
+const updateDriverLocation = async (driverId, latitude, longitude, accuracy, isOnline) => {
   try {
-    const { fromLat, fromLng, toLat, toLng } = req.body;
+    const updatedLocation = await prisma.driverLocation.upsert({
+      where: { driverId },
+      update: {
+        latitude,
+        longitude,
+        accuracy,
+        isOnline,
+        lastUpdated: new Date()
+      },
+      create: {
+        driverId,
+        latitude,
+        longitude,
+        accuracy,
+        isOnline
+      }
+    });
+    return updatedLocation;
+  } catch (error) {
+    console.error('Error updating driver location:', error);
+    throw error;
+  }
+};
 
-    // Make sure we have valid coordinates
-    if (!fromLat || !fromLng || !toLat || !toLng) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required coordinates"
+// Get driver's current location
+const getDriverLocation = async (driverId) => {
+  try {
+    const location = await prisma.driverLocation.findUnique({
+      where: { driverId }
+    });
+    return location;
+  } catch (error) {
+    console.error('Error getting driver location:', error);
+    throw error;
+  }
+};
+
+// Get all online drivers' locations
+const getOnlineDriversLocations = async () => {
+  try {
+    const drivers = await prisma.driverLocation.findMany({
+      where: { isOnline: true },
+      include: {
+        driver: {
+          select: {
+            id: true,
+            name: true,
+            // include other driver details you need
+          }
+        }
+      }
+    });
+    return drivers;
+  } catch (error) {
+    console.error('Error getting online drivers:', error);
+    throw error;
+  }
+};
+
+// Toggle driver's online status
+const toggleDriverStatus = async (driverId, status) => {
+  try {
+    const updatedDriver = await prisma.driverLocation.update({
+      where: { driverId },
+      data: { isOnline: status }
+    });
+    return updatedDriver;
+  } catch (error) {
+    // If record doesn't exist, create it with default location
+    if (error.code === 'P2025') {
+      const defaultLocation = {
+        driverId,
+        latitude: 0,
+        longitude: 0,
+        isOnline: status
+      };
+      return await prisma.driverLocation.create({
+        data: defaultLocation
       });
     }
-
-    // Using OpenRouteService API for routing
-    const response = await axios.get(
-      "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
-      {
-        params: {
-          api_key: process.env.OPENROUTE_API_KEY || "5b3ce3597851110001cf6248de3fe14c53db415487cf9ee01ad0464e",
-          start: `${fromLng},${fromLat}`,
-          end: `${toLng},${toLat}`,
-        },
-        headers: {
-          Accept: "application/json, application/geo+json",
-        },
-      }
-    );
-
-    res.json({
-      success: true,
-      data: response.data,
-    });
-  } catch (error) {
-    console.error("Error getting route:", error.response?.data || error.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to get route",
-      error: error.response?.data || error.message
-    });
+    console.error('Error toggling driver status:', error);
+    throw error;
   }
 };
 
 module.exports = {
-  getRoute,
+  updateDriverLocation,
+  getDriverLocation,
+  getOnlineDriversLocations,
+  toggleDriverStatus
 };

@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "./api";
-import { DocumentFormData } from "@/types/form";
 import { asyncStore } from "@/helper/async.storage.helper";
 import { ACCESS_TOKEN_KEY } from "@/constants";
+import { Alert } from 'react-native';
+import { DocumentFormData } from "@/types/form";
 
 export const useFetchDocuments = () => {
   return useQuery({
@@ -26,7 +27,6 @@ export const useFetchDocuments = () => {
   });
 };
 
-// Fetch a single document by ID
 export const useFetchDocument = (id: number) => {
   return useQuery({
     queryKey: ["documents", id],
@@ -46,30 +46,48 @@ export const useFetchDocument = (id: number) => {
         throw error;
       }
     },
-    enabled: !!id, // Prevent query from running if `id` is undefined or null
+    enabled: !!id,
   });
 };
 
-// Create a new document
 export const useCreateDocument = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (formData: DocumentFormData) => {
+    mutationFn: async (formData: FormData) => {
       const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
-      const response = await api.post('/document', formData, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
+      
+      try {
+        const response = await api.post('/document', formData, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        return response.data;
+      } catch (error: any) {
+        console.error("API request error:", error);
+        if (error.response) {
+          console.error("Response data:", error.response.data);
+          throw new Error(error.response?.data?.message || "Failed to upload documents");
+        }
+        throw error;
+      }
     },
     onError: (error: any) => {
       console.error("Error creating document:", error);
+      Alert.alert(
+        "Document Upload Failed", 
+        error.message || "Failed to upload documents. Please try again."
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] }); // Consistent query key
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      Alert.alert(
+        "Success",
+        "Your documents have been submitted successfully and are pending review."
+      );
     },
   });
 };
@@ -89,10 +107,14 @@ export const useUpdateDocument = () => {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] }); // Consistent query key
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
     onError: (error: any) => {
       console.error("Error updating document:", error);
+      Alert.alert(
+        "Update Failed", 
+        error.message || "Failed to update document. Please try again."
+      );
     },
   });
 };
@@ -110,10 +132,14 @@ export const useDeleteDocument = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['documents'] }); // Consistent query key
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
     },
     onError: (error: any) => {
       console.error("Error deleting document:", error);
+      Alert.alert(
+        "Deletion Failed", 
+        error.message || "Failed to delete document. Please try again."
+      );
     },
   });
 };

@@ -59,11 +59,31 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
 
   const handlePaymentSuccess = () => {
     Alert.alert('Success', 'Your payment was successful!');
-    // Add any post-payment success logic here
   };
 
   const handlePaymentError = (error: string) => {
     Alert.alert('Payment Error', error);
+  };
+
+  const handlePay = () => {
+    if (!validatePassengerNames()) {
+      Alert.alert('Validation Error', 'Please enter names for all passengers');
+      return;
+    }
+
+    Alert.alert(
+      'Pay Later',
+      'Your tickets have been reserved. Please pay at the bus counter before boarding.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            // You can add any additional logic here for pay later confirmation
+            console.log('Pay later confirmed for tickets:', passengerNames);
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -130,11 +150,21 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
           <Text style={styles.detailValue}>Rs {calculateTotalPrice()}</Text>
         </View>
         
-        <Khalti 
-          payment={parseFloat(calculateTotalPrice())} 
-          onSuccess={handlePaymentSuccess}
-          onError={handlePaymentError}
-        />
+        <View style={styles.paymentButtonsContainer}>
+          <Khalti 
+            payment={parseFloat(calculateTotalPrice())} 
+            onSuccess={handlePaymentSuccess}
+            onError={handlePaymentError}
+            style={styles.paymentButton}
+          />
+          
+          <TouchableOpacity
+            style={[styles.paymentButton, styles.PayButton]}
+            onPress={handlePay}
+          >
+            <Text style={styles.PayButtonText}>Pay</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -206,6 +236,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginHorizontal: 10,
+  },
+  paymentButtonsContainer: {
+    marginTop: 20,
+  },
+  paymentButton: {
+    marginBottom: 10,
+  },
+  PayButton: {
+    backgroundColor: '#ffa500',
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  PayButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 
