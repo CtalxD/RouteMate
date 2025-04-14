@@ -45,8 +45,6 @@ model Bus {
 model Document {
   id            Int      @id @default(autoincrement())
   licenseNumber Int
-  blueBookImage String[]
-  vehicleImage  String[]
   productionYear Int
   status        DocumentStatus  @default(PENDING)
   user          User     @relation("UserDocument", fields: [userId], references: [id])
@@ -62,10 +60,10 @@ model Ticket {
   from           String  
   to             String  
   departureTime  String   
-  estimatedTime  String   
-  numberOfTickets Int     
+  estimatedTime  String     
   totalPrice     Float 
   passengerNames String[]
+  paymentStatus  String   @default("PENDING") // "PENDING" or "PAID"
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

@@ -2,75 +2,44 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const createDocument = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        const existingDocument = await prisma.document.findUnique({
-            where: { userId }
-        });
+  try {
+    const userId = req.user.id;
 
-        if (existingDocument) {
-            return res.status(400).json({
-                success: false,
-                message: "Document already exists for this user"
-            });
-        }
-
-        const { licenseNumber, productionYear } = req.body;
-
-        const blueBookImages = req.files?.blueBookImage?.map(file => file.path) || [];
-        const vehicleImages = req.files?.vehicleImage?.map(file => file.path) || [];
-
-        if (blueBookImages.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "At least one blue book image is required"
-            });
-        }
-
-        if (vehicleImages.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "At least one vehicle image is required"
-            });
-        }
-
-        if (blueBookImages.length > 3) {
-            return res.status(400).json({
-                success: false,
-                message: "Maximum 3 blue book images allowed"
-            });
-        }
-
-        if (vehicleImages.length > 3) {
-            return res.status(400).json({
-                success: false,
-                message: "Maximum 3 vehicle images allowed"
-            });
-        }
-
-        const document = await prisma.document.create({
-            data: {
-                licenseNumber: parseInt(licenseNumber),
-                blueBookImage: blueBookImages,
-                vehicleImage: vehicleImages,
-                productionYear: parseInt(productionYear),
-                userId,
-                status: "PENDING" 
-            }
-        });
-
-        res.status(201).json({
-            success: true,
-            data: document
-        });
-    } catch (error) {
-        console.error("Document creation error:", error);
-        res.status(400).json({
-            success: false,
-            message: error.message
-        });
+    const existingDocument = await prisma.document.findUnique({ where: { userId } });
+    if (existingDocument) {
+      return res.status(400).json({ success: false, message: "Document already exists for this user" });
     }
+
+    const licenseNumber = req.body.licenseNumber;
+    const productionYear = req.body.productionYear;
+    // const blueBookImages = req.body["blueBookImage"]?.map(file => file.filename) || [];
+    // const vehicleImages = req.body["vehicleImage"]?.map(file => file.filename) || [];
+
+    // if (blueBookImages.length === 0 || vehicleImages.length === 0) {
+    //   return res.status(400).json({ success: false, message: "Both image types are required" });
+    // }
+
+    // if (blueBookImages.length > 3 || vehicleImages.length > 3) {
+    //   return res.status(400).json({ success: false, message: "Maximum 3 images each allowed" });
+    // }
+
+    const document = await prisma.document.create({
+      data: {
+        licenseNumber: parseInt(licenseNumber),
+        productionYear: parseInt(productionYear),
+        userId,
+        // blueBookImage: blueBookImages,
+        // vehicleImage: vehicleImages,
+        status: "PENDING",
+      },
+    });
+
+    res.status(201).json({ success: true, data: document });
+
+  } catch (error) {
+    console.error("Document creation error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 const getAllDocuments = async (req, res) => {
@@ -82,7 +51,9 @@ const getAllDocuments = async (req, res) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true
+              email: true,
+              role: true,
+              document: true,
             }
           }
         },
@@ -103,7 +74,7 @@ const getAllDocuments = async (req, res) => {
     try {
       const document = await prisma.document.findUnique({
         where: {
-          id: parseInt(req.params.id)
+          id: req.user.id
         },
         include: {
           user: true
@@ -129,14 +100,14 @@ const getAllDocuments = async (req, res) => {
     try {
       const { licenseNumber, productionYear } = req.body;
   
-      const blueBookImage = req.files?.blueBookImage?.map(file => file.path);
-      const vehicleImage = req.files?.vehicleImage?.map(file => file.path);
+      // const blueBookImage = req.files?.blueBookImage?.map(file => file.path);
+      // const vehicleImage = req.files?.vehicleImage?.map(file => file.path);
   
       const updateData = {
         ...(licenseNumber && { licenseNumber: parseInt(licenseNumber) }),
         ...(productionYear && { productionYear: parseInt(productionYear) }),
-        ...(blueBookImage && { blueBookImage }),
-        ...(vehicleImage && { vehicleImage })
+        // ...(blueBookImage && { blueBookImage }),
+        // ...(vehicleImage && { vehicleImage })
       };
   
       const document = await prisma.document.update({
@@ -189,11 +160,16 @@ const getAllDocuments = async (req, res) => {
     try {
       const document = await prisma.document.update({
         where: {
-          id: parseInt(req.params.id)
+          id: parseInt(req.params.id),
         },
         data: {
           status: "APPROVED",
-          adminComment: req.body.adminComment || null
+          adminComment: req.body.adminComment || null,
+          user: {
+            update: {
+              role: "DRIVER"
+            }
+          }
         },
         include: {
           user: true

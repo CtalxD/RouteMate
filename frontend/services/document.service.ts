@@ -55,14 +55,14 @@ export const useCreateDocument = () => {
 
   return useMutation({
     mutationFn: async (formData: FormData) => {
-      const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
-      
+      const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);      
       try {
         const response = await api.post('/document', formData, {
           headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'multipart/form-data',
           },
+          
         });
         
         return response.data;
