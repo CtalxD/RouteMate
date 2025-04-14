@@ -8,6 +8,7 @@ const TabLayout = () => {
       <Stack.Screen name="driver" options={{ headerShown: false }} />
       <Stack.Screen name="busdocs" options={{ headerShown: false }} />
       <Stack.Screen name="payment" options={{ headerShown: false }} />
+      <Stack.Screen name="uiTicks" options={{ headerShown: false }} />
     </Stack>
   );
 };

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Khalti from './Khalti';
+import { useRouter } from 'expo-router';
 
 type BusRecommendation = {
   id: string;
@@ -18,7 +19,6 @@ type TicketProps = {
   onBack: () => void;
 };
 
-// Type guard for error handling
 function isErrorWithMessage(error: unknown): error is { message: string } {
   return (
     typeof error === 'object' &&
@@ -32,6 +32,7 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
   const [numberOfTickets, setNumberOfTickets] = useState<number>(1);
   const [fullPassengerName, setFullPassengerName] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const router = useRouter();
 
   const handleNumberOfTicketsChange = (text: string) => {
     const num = parseInt(text, 10);
@@ -85,8 +86,14 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
   const handlePaymentSuccess = async () => {
     setIsLoading(true);
     try {
-      await createTicketInDatabase(true);
-      Alert.alert('Success', 'Your payment and ticket booking were successful!');
+      const ticketData = await createTicketInDatabase(true);
+      router.push({
+        pathname: '/uiTicks',
+        params: {
+          ...ticketData,
+          passengerNames: JSON.stringify(ticketData.passengerNames)
+        }
+      });
     } catch (error) {
       let errorMessage = 'Payment succeeded but ticket booking failed. Please contact support.';
       if (isErrorWithMessage(error)) {
@@ -102,7 +109,7 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
     Alert.alert('Payment Error', error);
   };
 
-  const handlePay = async () => {
+  const handlePayLater = async () => {
     if (!fullPassengerName.trim()) {
       Alert.alert('Validation Error', 'Please enter passenger name');
       return;
@@ -112,19 +119,14 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
 
     setIsLoading(true);
     try {
-      await createTicketInDatabase(false);
-      Alert.alert(
-        'Success',
-        'Your tickets have been reserved. Please pay at the bus counter before boarding.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              console.log('Pay later confirmed for tickets');
-            }
-          }
-        ]
-      );
+      const ticketData = await createTicketInDatabase(false);
+      router.push({
+        pathname: '/uiTicks',
+        params: {
+          ...ticketData,
+          passengerNames: JSON.stringify(ticketData.passengerNames)
+        }
+      });
     } catch (error) {
       let errorMessage = 'Failed to book ticket';
       if (isErrorWithMessage(error)) {
@@ -188,8 +190,15 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
         </View>
 
         <View style={styles.detailsContainer}>
-          <Text style={styles.detailLabel}>Price:</Text>
+          <Text style={styles.detailLabel}>Price per Ticket:</Text>
           <Text style={styles.detailValue}>{bus.price}</Text>
+        </View>
+        
+        <View style={styles.detailsContainer}>
+          <Text style={styles.detailLabel}>Total Price:</Text>
+          <Text style={[styles.detailValue, styles.totalPrice]}>
+            Rs {parseFloat(bus.price.replace('Rs', '').trim()) * numberOfTickets}
+          </Text>
         </View>
         
         <View style={styles.paymentButtonsContainer}>
@@ -204,13 +213,13 @@ const Ticket: React.FC<TicketProps> = ({ bus, onBack }) => {
           <TouchableOpacity
             style={[
               styles.paymentButton, 
-              styles.PayButton,
+              styles.payLaterButton,
               (isLoading || !fullPassengerName.trim()) && styles.disabledButton
             ]}
-            onPress={handlePay}
+            onPress={handlePayLater}
             disabled={isLoading || !fullPassengerName.trim()}
           >
-            <Text style={styles.PayButtonText}>
+            <Text style={styles.payLaterButtonText}>
               {isLoading ? 'Processing...' : 'Pay Later'}
             </Text>
           </TouchableOpacity>
@@ -271,8 +280,12 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
     color: '#333',
+  },
+  totalPrice: {
+    fontWeight: 'bold',
+    color: '#ff6b00',
   },
   paymentButtonsContainer: {
     marginTop: 20,
@@ -280,13 +293,13 @@ const styles = StyleSheet.create({
   paymentButton: {
     marginBottom: 10,
   },
-  PayButton: {
+  payLaterButton: {
     backgroundColor: '#ffa500',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
   },
-  PayButtonText: {
+  payLaterButtonText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
