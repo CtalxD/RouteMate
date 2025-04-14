@@ -1,3 +1,5 @@
+// controller/adminController.js
+
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
@@ -19,17 +21,6 @@ const loginAdmin = async (req, res) => {
       });
     }
 
-    // Compare the provided password with the hashed password in the database
-    // const isPasswordValid = await bcrypt.compare(password, admin.password);
-
-    // if (!isPasswordValid) {
-    //   return res.status(401).json({
-    //     success: false,
-    //     message: 'Invalid credentials',
-    //   });
-    // }
-
-    // Generate JWT token
     const token = jwt.sign({ email: admin.email, role: 'admin' }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_TOKEN_LIFE,
     });
