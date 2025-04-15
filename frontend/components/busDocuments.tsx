@@ -6,34 +6,23 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  Image,
-  Alert,
-  Dimensions,
   SafeAreaView,
-  Platform,
+  Alert,
 } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
-import * as ImagePicker from "expo-image-picker";
 import { useCreateDocument } from "@/services/document.service";
-import * as FileSystem from "expo-file-system";
 import { asyncStore } from "@/helper/async.storage.helper";
 import { ACCESS_TOKEN_KEY } from "@/constants";
 import { useRouter } from "expo-router";
 
-const { width } = Dimensions.get("window");
-
 type FormData = {
   licenseNumber: string;
   productionYear: string;
-  blueBookImages: string[];
-  vehicleImages: string[];
 };
 
 type Errors = {
   licenseNumber?: string;
   productionYear?: string;
-  blueBookImages?: string;
-  vehicleImages?: string;
 };
 
 const BusDocuments = () => {
@@ -41,8 +30,6 @@ const BusDocuments = () => {
   const [formData, setFormData] = useState<FormData>({
     licenseNumber: "",
     productionYear: "",
-    blueBookImages: [],
-    vehicleImages: [],
   });
   const [errors, setErrors] = useState<Errors>({});
   const [isUploading, setIsUploading] = useState(false);
@@ -108,173 +95,9 @@ const BusDocuments = () => {
       newErrors.productionYear = "Please enter a valid year (YYYY)";
     }
 
-    // if (formData.blueBookImages.length === 0) {
-    //   newErrors.blueBookImages = "At least one blue book image is required";
-    // } else if (formData.blueBookImages.length > 3) {
-    //   newErrors.blueBookImages = "Maximum 3 blue book images allowed";
-    // }
-
-    // if (formData.vehicleImages.length === 0) {
-    //   newErrors.vehicleImages = "At least one vehicle image is required";
-    // } else if (formData.vehicleImages.length > 3) {
-    //   newErrors.vehicleImages = "Maximum 3 vehicle images allowed";
-    // }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // const generateImagePath = (uri: string, type: string): string => {
-  //   const timestamp = Date.now();
-  //   const randomString = Math.random().toString(36).substring(2, 8);
-  //   const extension = uri.split('.').pop() || 'jpg';
-  //       return `upload/${type}_${timestamp}_${randomString}.${extension}`;
-  // };
-
-  // const pickImage = async (type: "blueBook" | "vehicle") => {
-  //   try {
-  //     const result = await ImagePicker.launchImageLibraryAsync({
-  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  //       allowsEditing: true,
-  //       aspect: [4, 3],
-  //       quality: 0.8,
-  //       allowsMultipleSelection: true
-  //     });
-  
-  //     if (!result.canceled && result.assets && result.assets.length > 0) {
-  //       const selectedAsset = result.assets[0];
-        
-  //       const serverPath = generateImagePath(
-  //         selectedAsset.uri, 
-  //         type === "blueBook" ? "bluebook" : "vehicle"
-  //       );
-        
-  //       addImageToForm({
-  //         uri: selectedAsset.uri,
-  //         path: serverPath,  
-  //         type
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.log("Image picker error:", error);
-  //     Alert.alert("Error", "Failed to open image picker");
-  //   }
-  // };
-  
-  // const takePhoto = async (type: "blueBook" | "vehicle") => {
-  //   try {
-  //     const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-  //     if (!cameraPermission.granted) {
-  //       Alert.alert("Permission required", "Camera access is needed to take photos");
-  //       return;
-  //     }
-  
-  //     const result = await ImagePicker.launchCameraAsync({
-  //       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-  //       allowsEditing: true,
-  //       aspect: [4, 3],
-  //       quality: 0.8,
-  //     });
-  
-  //     if (!result.canceled && result.assets && result.assets.length > 0) {
-  //       const selectedAsset = result.assets[0];
-        
-  //       // Same approach as pickImage
-  //       const serverPath = generateImagePath(
-  //         selectedAsset.uri, 
-  //         type === "blueBook" ? "bluebook" : "vehicle"
-  //       );
-        
-  //       addImageToForm({
-  //         uri: selectedAsset.uri,
-  //         path: serverPath,
-  //         type
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.log("Camera error:", error);
-  //     Alert.alert("Error", "Failed to open camera");
-  //   }
-  // };
-  
-  // We need to track both the display URI and the server path
-  // const addImageToForm = ({ uri, path, type }: { uri: string, path: string, type: "blueBook" | "vehicle" }) => {
-  //   if (type === "blueBook") {
-  //     if (formData.blueBookImages.length >= 3) {
-  //       Alert.alert("Limit reached", "You can upload maximum 3 blue book images");
-  //       return;
-  //     }
-      
-  //     // Store just the server path in the form data
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       blueBookImages: [...prev.blueBookImages, path],
-  //     }));
-      
-  //     // Store the mapping between path and URI for display purposes
-  //     setImageUriMap((prev) => ({
-  //       ...prev,
-  //       [path]: uri
-  //     }));
-  //   } else {
-  //     if (formData.vehicleImages.length >= 3) {
-  //       Alert.alert("Limit reached", "You can upload maximum 3 vehicle images");
-  //       return;
-  //     }
-      
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       vehicleImages: [...prev.vehicleImages, path],
-  //     }));
-      
-  //     setImageUriMap((prev) => ({
-  //       ...prev,
-  //       [path]: uri
-  //     }));
-  //   }
-
-  //   if (errors[`${type}Images` as keyof Errors]) {
-  //     setErrors((prev) => ({
-  //       ...prev,
-  //       [`${type}Images`]: undefined,
-  //     }));
-  //   }
-  // };
-
-  // Map to keep track of display URIs for each server path
-  // const [imageUriMap, setImageUriMap] = useState<Record<string, string>>({});
-
-  // const removeImage = (index: number, type: "blueBook" | "vehicle") => {
-  //   if (type === "blueBook") {
-  //     const updatedImages = [...formData.blueBookImages];
-  //     const removedPath = updatedImages[index];
-      
-      // Remove the path from our form data
-      // updatedImages.splice(index, 1);
-      // setFormData({
-      //   ...formData,
-      //   blueBookImages: updatedImages,
-      // });
-      
-      // Clean up the URI mapping
-  //     const newMap = { ...imageUriMap };
-  //     delete newMap[removedPath];
-  //     setImageUriMap(newMap);
-  //   } else {
-  //     const updatedImages = [...formData.vehicleImages];
-  //     const removedPath = updatedImages[index];
-      
-  //     updatedImages.splice(index, 1);
-  //     setFormData({
-  //       ...formData,
-  //       vehicleImages: updatedImages,
-  //     });
-      
-  //     const newMap = { ...imageUriMap };
-  //     delete newMap[removedPath];
-  //     setImageUriMap(newMap);
-  //   }
-  // };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
@@ -287,37 +110,10 @@ const BusDocuments = () => {
 
     try {
       const data = new FormData();
-
-      // Append text fields
       data.append("licenseNumber", formData.licenseNumber);
       data.append("productionYear", formData.productionYear);
       data.append("userId", userId);
 
-        // for (const path of formData.blueBookImages) {
-        //   const uri = imageUriMap[path];
-        //   const filename = path.split('/').pop() || 'image.jpg';
-        //   const fileObj = {
-        //     uri,
-        //     name: filename,
-        //     type: `image/${filename.split('.').pop()}`
-        //   };          
-        //   data.append('blueBookImages', fileObj);
-        // }
-
-        // for (const path of formData.vehicleImages) {
-        //   const uri = imageUriMap[path];
-        //   const filename = path.split('/').pop() || 'image.jpg';
-          
-        //   const fileObj = {
-        //     uri,
-        //     name: filename,
-        //     type: `image/${filename.split('.').pop() || 'jpeg'}`
-        //   };
-          
-        //   // @ts-ignore - React Native specific FormData append
-        //   data.append('vehicleImages', fileObj);
-        // }
-      console.log("data", data);
       createDocument.mutate(data, {
         onSuccess: () => {
           Alert.alert("Success", "Documents submitted successfully!", [
@@ -342,11 +138,6 @@ const BusDocuments = () => {
       setIsUploading(false);
     }
   };
-
-  // Get the display URI for an image path
-  // const getImageDisplayUri = (path: string): string => {
-  //   return imageUriMap[path] || ''; // Return the mapped URI or empty string
-  // };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -392,139 +183,6 @@ const BusDocuments = () => {
             />
             {errors.productionYear && <Text style={styles.errorText}>{errors.productionYear}</Text>}
           </View>
-
-          {/* Blue Book Images */}
-          {/* <View style={styles.inputContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Blue Book Images</Text>
-              <Text style={styles.imageCount}>{formData.blueBookImages.length}/3 photos</Text>
-            </View>
-            <Text style={styles.hint}>Upload clear images of your vehicle's blue book</Text>
-
-            <View style={styles.uploadBox}>
-              {formData.blueBookImages.length > 0 ? (
-                <View style={styles.imagesContainer}>
-                  {formData.blueBookImages.map((path, index) => (
-                    <View key={`bluebook-${index}`} style={styles.imageWrapper}>
-                      <Image 
-                        source={{ uri: getImageDisplayUri(path) }} 
-                        style={styles.image} 
-                      />
-                      <TouchableOpacity
-                        style={styles.removeImageButton}
-                        onPress={() => removeImage(index, "blueBook")}
-                      >
-                        <Ionicons name="close-circle" size={20} color="#EB5757" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons name="document-attach" size={40} color="#BDBDBD" />
-                  <Text style={styles.emptyStateText}>Upload Photo of your blue book</Text>
-                </View>
-              )}
-
-              {formData.blueBookImages.length < 3 && (
-                <View style={styles.uploadOptionsContainer}>
-                  <TouchableOpacity
-                    style={[styles.uploadOptionButton, styles.galleryButton]}
-                    onPress={() => pickImage("blueBook")}
-                  >
-                    <Ionicons name="image" size={18} color="white" />
-                    <Text style={styles.uploadOptionText}>Gallery</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.uploadOptionButton, styles.cameraButton]}
-                    onPress={() => takePhoto("blueBook")}
-                  >
-                    <Ionicons name="camera" size={18} color="white" />
-                    <Text style={styles.uploadOptionText}>Camera</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {formData.blueBookImages.length > 0 && (
-                <View style={styles.uploadTips}>
-                  <Text style={styles.uploadTipText}>
-                    <Ionicons name="information-circle" size={16} color="#4F4F4F" /> Upload front side of the blue book
-                  </Text>
-                  <Text style={styles.uploadTipText}>
-                    <Ionicons name="information-circle" size={16} color="#4F4F4F" /> Make sure all details are visible
-                  </Text>
-                </View>
-              )}
-            </View>
-            {errors.blueBookImages && <Text style={styles.errorText}>{errors.blueBookImages}</Text>}
-          </View> */}
-
-          {/* Vehicle Images */}
-          {/* <View style={styles.inputContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Vehicle Images</Text>
-              <Text style={styles.imageCount}>{formData.vehicleImages.length}/3 photos</Text>
-            </View>
-            <Text style={styles.hint}>Upload clear images of your vehicle from multiple angles</Text>
-
-            <View style={styles.uploadBox}>
-              {formData.vehicleImages.length > 0 ? (
-                <View style={styles.imagesContainer}>
-                  {formData.vehicleImages.map((path, index) => (
-                    <View key={`vehicle-${index}`} style={styles.imageWrapper}>
-                      <Image 
-                        source={{ uri: getImageDisplayUri(path) }} 
-                        style={styles.image} 
-                      />
-                      <TouchableOpacity
-                        style={styles.removeImageButton}
-                        onPress={() => removeImage(index, "vehicle")}
-                      >
-                        <Ionicons name="close-circle" size={20} color="#EB5757" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons name="car-sport" size={40} color="#BDBDBD" />
-                  <Text style={styles.emptyStateText}>Upload Photo of your vehicle</Text>
-                </View>
-              )}
-
-              {formData.vehicleImages.length < 3 && (
-                <View style={styles.uploadOptionsContainer}>
-                  <TouchableOpacity
-                    style={[styles.uploadOptionButton, styles.galleryButton]}
-                    onPress={() => pickImage("vehicle")}
-                  >
-                    <Ionicons name="image" size={18} color="white" />
-                    <Text style={styles.uploadOptionText}>Gallery</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.uploadOptionButton, styles.cameraButton]}
-                    onPress={() => takePhoto("vehicle")}
-                  >
-                    <Ionicons name="camera" size={18} color="white" />
-                    <Text style={styles.uploadOptionText}>Camera</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {formData.vehicleImages.length > 0 && (
-                <View style={styles.uploadTips}>
-                  <Text style={styles.uploadTipText}>
-                    <Ionicons name="information-circle" size={16} color="#4F4F4F" /> Upload front, back and side views
-                  </Text>
-                  <Text style={styles.uploadTipText}>
-                    <Ionicons name="information-circle" size={16} color="#4F4F4F" /> Make sure registration plate is
-                    visible
-                  </Text>
-                </View>
-              )}
-            </View>
-            {errors.vehicleImages && <Text style={styles.errorText}>{errors.vehicleImages}</Text>}
-          </View> */}
 
           {/* Submit Button */}
           <TouchableOpacity
@@ -599,26 +257,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
   label: {
     fontSize: 16,
     fontWeight: "500",
     color: "#082A3F",
-  },
-  imageCount: {
-    fontSize: 14,
-    color: "#828282",
-  },
-  hint: {
-    fontSize: 14,
-    color: "#828282",
-    marginBottom: 12,
-    lineHeight: 20,
   },
   input: {
     borderWidth: 1,
@@ -637,88 +279,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 4,
     marginLeft: 4,
-  },
-  uploadBox: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: "white",
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 24,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: "#828282",
-    marginTop: 8,
-    textAlign: "center",
-  },
-  imagesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    marginBottom: 16,
-  },
-  imageWrapper: {
-    width: (width - 64) / 3,
-    height: (width - 64) / 3,
-    marginRight: 8,
-    marginBottom: 8,
-    position: "relative",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    resizeMode: "cover",
-  },
-  removeImageButton: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    backgroundColor: "white",
-    borderRadius: 12,
-  },
-  uploadOptionsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 8,
-  },
-  uploadOptionButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
-  },
-  galleryButton: {
-    backgroundColor: "#082A3F",
-  },
-  cameraButton: {
-    backgroundColor: "#082A3F",
-    opacity: 0.9,
-  },
-  uploadOptionText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "500",
-    marginLeft: 8,
-  },
-  uploadTips: {
-    marginTop: 12,
-  },
-  uploadTipText: {
-    fontSize: 13,
-    color: "#4F4F4F",
-    marginBottom: 4,
   },
   submitButton: {
     backgroundColor: "#082A3F",

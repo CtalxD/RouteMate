@@ -136,7 +136,12 @@ const ContactMap = () => {
 
   const switchToDriverMode = () => {
     setMenuVisible(false);
-    router.push("/busdocs");
+    if (profileData?.role === "DRIVER") {
+      router.push("/driver");
+    } else {
+      router.push("/busdocs");
+      Alert.alert("Access Denied", "You are not assigned the driver role.");
+    }
   };
 
   const handleBack = () => {

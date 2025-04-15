@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const { authenticateToken, authorizeRole } = require("../middleware/authMiddleware");
-const { multipleUpload } = require("../middleware/upload");
 const {
     createDocument,
     getAllDocuments,
@@ -13,12 +12,12 @@ const {
 } = require("../controller/documentController");
 
 // Document submission by users
-router.post("/", authenticateToken, multipleUpload, createDocument);
+router.post("/", authenticateToken, createDocument);
 
 // Admin document management routes
 router.get("/", authenticateToken, authorizeRole('ADMIN'), getAllDocuments);
 router.get("/:id", authenticateToken, authorizeRole('ADMIN'), getDocumentById);
-router.put("/:id", authenticateToken, authorizeRole('ADMIN'), multipleUpload, updateDocument);
+router.put("/:id", authenticateToken, authorizeRole('ADMIN'), updateDocument);
 router.delete("/:id", authenticateToken, authorizeRole('ADMIN'), deleteDocument);
 router.put("/:id/approve", authenticateToken, authorizeRole('ADMIN'), approveDocument);
 router.put("/:id/reject", authenticateToken, authorizeRole('ADMIN'), rejectDocument);

@@ -15,6 +15,7 @@ const Profile = ({ onBack }: ProfileProps) => {
     profilePicUri: '',
     profilePicType: '',
     email: '',
+    role:''
   });
   const [formError, setFormError] = useState('');
 
@@ -24,13 +25,15 @@ const Profile = ({ onBack }: ProfileProps) => {
     if (profileData) {
       setFormData({
         firstName: profileData.firstName || '',
+        lastName: profileData.lastName || '',
         profilePicUri: profileData.profilePic || '',
         profilePicType: '',
         email: profileData.email || '',
-        lastName:profileData.lastName || ""
+        role: profileData.role || '', // <-- role from backend
       });
     }
   }, [profileData]);
+  
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
