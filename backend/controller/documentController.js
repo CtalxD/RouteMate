@@ -12,24 +12,12 @@ const createDocument = async (req, res) => {
 
     const licenseNumber = req.body.licenseNumber;
     const productionYear = req.body.productionYear;
-    // const blueBookImages = req.body["blueBookImage"]?.map(file => file.filename) || [];
-    // const vehicleImages = req.body["vehicleImage"]?.map(file => file.filename) || [];
-
-    // if (blueBookImages.length === 0 || vehicleImages.length === 0) {
-    //   return res.status(400).json({ success: false, message: "Both image types are required" });
-    // }
-
-    // if (blueBookImages.length > 3 || vehicleImages.length > 3) {
-    //   return res.status(400).json({ success: false, message: "Maximum 3 images each allowed" });
-    // }
 
     const document = await prisma.document.create({
       data: {
         licenseNumber: parseInt(licenseNumber),
         productionYear: parseInt(productionYear),
         userId,
-        // blueBookImage: blueBookImages,
-        // vehicleImage: vehicleImages,
         status: "PENDING",
       },
     });
@@ -100,14 +88,9 @@ const getAllDocuments = async (req, res) => {
     try {
       const { licenseNumber, productionYear } = req.body;
   
-      // const blueBookImage = req.files?.blueBookImage?.map(file => file.path);
-      // const vehicleImage = req.files?.vehicleImage?.map(file => file.path);
-  
       const updateData = {
         ...(licenseNumber && { licenseNumber: parseInt(licenseNumber) }),
         ...(productionYear && { productionYear: parseInt(productionYear) }),
-        // ...(blueBookImage && { blueBookImage }),
-        // ...(vehicleImage && { vehicleImage })
       };
   
       const document = await prisma.document.update({

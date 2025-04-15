@@ -4,6 +4,7 @@ import {asyncStore  } from '@/helper/async.storage.helper';  // Add this import
 import { ACCESS_TOKEN_KEY } from '@/constants';
 
 interface ProfileData {
+  role: string;
   firstName: string;
   age:Number,
   lastName:string,
