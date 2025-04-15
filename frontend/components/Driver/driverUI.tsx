@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect, useRef } from "react"
 import { View, StyleSheet, Text, TouchableOpacity, Alert } from "react-native"
 import { useAuth } from "@/context/auth-context"
@@ -26,7 +24,7 @@ type UserLocation = {
   lastUpdated: number
 }
 
-const API_URL = "http://localhost:5000" // Update this with your actual backend URL
+const API_URL = "http://localhost:5000"
 
 const DriverUI = () => {
   const [zoomLevel] = useState(0.01)
@@ -36,7 +34,7 @@ const DriverUI = () => {
   const router = useRouter()
   const socketRef = useRef<Socket | null>(null)
   const auth = useAuth()
-  const [otherUsers, setOtherUsers] = useState<Record<string, UserLocation>>({})
+  const [] = useState<Record<string, UserLocation>>({})
   const mapRef = useRef<HTMLIFrameElement>(null)
   const locationWatchIdRef = useRef<number | null>(null)
 
@@ -46,7 +44,7 @@ const DriverUI = () => {
     lng: 85.324,
   }
 
-  const { data: profileData } = useGetProfile()
+  const {} = useGetProfile()
   const [menuVisible, setMenuVisible] = useState(false)
   const [currentPage, setCurrentPage] = useState("Home")
   const [previousPage, setPreviousPage] = useState("Home")

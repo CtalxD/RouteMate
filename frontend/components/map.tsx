@@ -8,7 +8,6 @@ import Settings from "./Settings";
 import Icon from "react-native-vector-icons/Ionicons";
 import Overlay from "./overlay";
 import Ticket from "./tickets";
-import BusDocuments from "./busDocuments";
 import { useRouter } from "expo-router";
 
 type Location = {

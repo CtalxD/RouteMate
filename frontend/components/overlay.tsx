@@ -31,9 +31,8 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
       try {
         setLoading(true)
         setError(null)
-
-        // In a real app, you would fetch buses based on the route (from/to)
-        // For now, we'll just fetch all buses and add the route info
+        
+        // Fetch bus data from the API
         const response = await axios.get("http://localhost:5000/buses")
 
         // Transform the API data to match our BusRecommendation type
