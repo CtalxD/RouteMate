@@ -200,6 +200,29 @@ const getAllDocuments = async (req, res) => {
     }
   };
 
+  const getAllDrivers = async (req, res) => {
+    try {
+      const drivers = await prisma.user.findMany({
+        where: {
+          role: 'DRIVER'
+        },
+        include: {
+          document: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      res.status(200).json(drivers);
+    } catch (error) {
+      res.status(500).json({ 
+        message: "Error fetching drivers", 
+        error: error.message 
+      });
+    }
+  };
+
 module.exports = {
     createDocument,
     getDocumentById,
@@ -207,5 +230,6 @@ module.exports = {
     updateDocument,
     deleteDocument,
     approveDocument,
-    rejectDocument
+    rejectDocument,
+    getAllDrivers
 };
