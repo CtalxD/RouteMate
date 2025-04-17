@@ -25,6 +25,7 @@ model User {
   age        Int
   role       Role      @default(USER)
   document   Document? @relation("UserDocument")
+  driverLocation DriverLocation?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -49,7 +50,7 @@ model Document {
   status        DocumentStatus  @default(PENDING)
   user          User     @relation("UserDocument", fields: [userId], references: [id])
   userId        Int      @unique
-  adminComment  String?  // Optional feedback from admin
+  adminComment  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -66,6 +67,21 @@ model Ticket {
   paymentStatus  String   @default("PENDING") // "PENDING" or "PAID"
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model DriverLocation {
+  id          String   @id @default(uuid())
+  driver      User     @relation(fields: [userId], references: [id])
+  userId      Int      @unique
+  latitude    Float
+  longitude   Float
+  accuracy    Float?  
+  speed       Float?   
+  heading     Float?   
+  isOnline    Boolean  @default(false)
+  lastUpdated DateTime @updatedAt
+
+  @@index([userId])
 }
 
 generator client {

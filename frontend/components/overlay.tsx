@@ -17,10 +17,12 @@ type BusRecommendation = {
 
 type OverlayProps = {
   searchQuery: { from: string; to: string }
+  distance: number | null
+  duration: number | null
   onClose: () => void
 }
 
-const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
+const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onClose }) => {
   const router = useRouter()
   const [busRecommendations, setBusRecommendations] = useState<BusRecommendation[]>([])
   const [loading, setLoading] = useState<boolean>(true)
@@ -58,7 +60,6 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
     fetchBuses()
   }, [searchQuery])
 
-  // Helper functions to generate departure time, estimated time, and price
   const getDepartureTime = (index: number): string => {
     const hours = 10 + Math.floor(index / 2)
     const minutes = (index % 2) * 30
@@ -78,7 +79,6 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
   }
 
   const handleBookNow = (bus: BusRecommendation, index: number) => {
-    // Navigate to payment screen with bus details as params
     router.push({
       pathname: "/payment",
       params: {
@@ -93,17 +93,17 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
       },
     })
 
-    // Close the overlay after navigation
     onClose()
   }
 
   return (
     <View style={styles.overlayContainer}>
-      <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-        <Icon name="close" size={24} color="black" />
-      </TouchableOpacity>
-
-      <Text style={styles.overlayTitle}>Bus Recommendations</Text>
+      <View style={styles.headerContainer}>
+        <Text style={styles.overlayTitle}>Bus Recommendations</Text>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Icon name="close" size={24} color="black" />
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.routeContainer}>
         <View style={styles.routeItem}>
@@ -116,6 +116,13 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
           <Text style={styles.routeText}>{searchQuery.to}</Text>
         </View>
       </View>
+
+      {distance && duration && (
+        <View style={styles.routeInfoContainer}>
+          <Text style={styles.routeInfoText}>Distance: {distance.toFixed(2)} km</Text>
+          <Text style={styles.routeInfoText}>Estimated Duration: {Math.round(duration)} mins</Text>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -133,25 +140,34 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, onClose }) => {
           <Text style={styles.emptyText}>No buses available for this route</Text>
         </View>
       ) : (
-        <ScrollView style={styles.recommendationsList}>
-          {busRecommendations.map((bus, index) => (
-            <View key={bus.id} style={styles.busCard}>
-              <View style={styles.numberPlateContainer}>
-                <Text style={styles.numberPlateText}>{bus.numberPlate}</Text>
+        <View style={styles.scrollContainer}>
+          <ScrollView 
+            style={styles.recommendationsScrollView}
+            contentContainerStyle={styles.recommendationsContentContainer}
+            showsVerticalScrollIndicator={true}
+          >
+            {busRecommendations.map((bus, index) => (
+              <View key={bus.id} style={styles.busCard}>
+                <View style={styles.numberPlateContainer}>
+                  <Text style={styles.numberPlateText}>{bus.numberPlate}</Text>
+                </View>
+                <Text style={styles.busRoute}>
+                  {bus.from} → {bus.to}
+                </Text>
+                <Text style={styles.busDetails}>
+                  Departure: {bus.departureTime} | Estimated Time: {bus.estimatedTime}
+                </Text>
+                <Text style={styles.busPrice}>Price: {bus.price}</Text>
+                <TouchableOpacity 
+                  style={styles.bookNowButton} 
+                  onPress={() => handleBookNow(bus, index)}
+                >
+                  <Text style={styles.bookNowButtonText}>Book Now</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.busRoute}>
-                {bus.from} → {bus.to}
-              </Text>
-              <Text style={styles.busDetails}>
-                Departure: {bus.departureTime} | Estimated Time: {bus.estimatedTime}
-              </Text>
-              <Text style={styles.busPrice}>Price: {bus.price}</Text>
-              <TouchableOpacity style={styles.bookNowButton} onPress={() => handleBookNow(bus, index)}>
-                <Text style={styles.bookNowButtonText}>Book Now</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        </View>
       )}
     </View>
   )
@@ -169,22 +185,25 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     elevation: 10,
     zIndex: 10,
-    maxHeight: "80%",
+    maxHeight: "85%", // Increased max height for better scrolling
+  },
+  headerContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
   },
   closeButton: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 11,
+    padding: 5,
   },
   overlayTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 20,
+    flex: 1,
     textAlign: "center",
   },
   routeContainer: {
-    marginBottom: 20,
+    marginBottom: 15,
     padding: 10,
     backgroundColor: "#f9f9f9",
     borderRadius: 10,
@@ -206,8 +225,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#ccc",
     marginVertical: 10,
   },
-  recommendationsList: {
+  routeInfoContainer: {
+    backgroundColor: "#e3f2fd",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  routeInfoText: {
+    fontSize: 14,
+    color: "#1976d2",
+    marginBottom: 5,
+  },
+  scrollContainer: {
     flex: 1,
+  },
+  recommendationsScrollView: {
+    flex: 1,
+  },
+  recommendationsContentContainer: {
+    paddingBottom: 20, // Extra padding at the bottom for better scrolling
   },
   busCard: {
     backgroundColor: "#f0f0f0",

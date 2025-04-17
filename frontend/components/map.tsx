@@ -28,11 +28,34 @@ type BusRecommendation = {
   price: string;
 };
 
+type RouteCoordinates = {
+  lat: number;
+  lng: number;
+};
+
+type RouteResponse = {
+  routes: {
+    geometry: {
+      coordinates: [number, number][];
+    };
+    distance: number;
+    duration: number;
+  }[];
+  waypoints: {
+    location: [number, number];
+    name: string;
+  }[];
+};
+
 const ContactMap = () => {
   const router = useRouter();
   const [zoomLevel] = useState(0.01);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [routeCoordinates, setRouteCoordinates] = useState<RouteCoordinates[]>([]);
+  const [showRoute, setShowRoute] = useState(false);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
+  const [routeDuration, setRouteDuration] = useState<number | null>(null);
 
   const defaultLocation: Location = {
     name: "Kathmandu",
@@ -51,6 +74,8 @@ const ContactMap = () => {
   const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]);
   const [showTicket, setShowTicket] = useState(false);
   const [selectedBus, setSelectedBus] = useState<BusRecommendation | null>(null);
+  const [selectedFromLocation, setSelectedFromLocation] = useState<Location | null>(null);
+  const [selectedToLocation, setSelectedToLocation] = useState<Location | null>(null);
   const { onLogout } = useAuth();
 
   const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
@@ -68,6 +93,31 @@ const ContactMap = () => {
       console.error("Error fetching location suggestions:", error);
       return [];
     }
+  };
+
+  const fetchRoute = async (start: Location, end: Location) => {
+    try {
+      const response = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
+      );
+      const data: RouteResponse = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const coordinates = data.routes[0].geometry.coordinates.map(coord => ({
+          lng: coord[0],
+          lat: coord[1]
+        }));
+        setRouteCoordinates(coordinates);
+        setRouteDistance(data.routes[0].distance / 1000); // Convert to km
+        setRouteDuration(data.routes[0].duration / 60); // Convert to minutes
+        setShowRoute(true);
+        return coordinates;
+      }
+    } catch (error) {
+      console.error("Error fetching route:", error);
+      Alert.alert("Error", "Could not fetch route. Please try again.");
+    }
+    return [];
   };
 
   const handleFromInputChange = async (text: string) => {
@@ -93,9 +143,11 @@ const ContactMap = () => {
   const handleSuggestionPress = (field: string, suggestion: Suggestion) => {
     if (field === "from") {
       setSearchQuery({ ...searchQuery, from: suggestion.name });
+      setSelectedFromLocation(suggestion);
       setFromSuggestions([]);
     } else {
       setSearchQuery({ ...searchQuery, to: suggestion.name });
+      setSelectedToLocation(suggestion);
       setToSuggestions([]);
     }
   };
@@ -125,6 +177,8 @@ const ContactMap = () => {
     setPreviousPage(currentPage);
     setCurrentPage("Home");
     setMenuVisible(false);
+    setShowRoute(false);
+    setRouteCoordinates([]);
   };
 
   const navigateToSettings = () => {
@@ -145,6 +199,10 @@ const ContactMap = () => {
 
   const handleBack = () => {
     setCurrentPage(previousPage);
+    if (previousPage === "Home") {
+      setShowRoute(false);
+      setRouteCoordinates([]);
+    }
   };
 
   const handleSearchIconClick = () => {
@@ -155,9 +213,18 @@ const ContactMap = () => {
     setIsSearchVisible(false);
   };
 
-  const handleSearch = () => {
-    console.log("From:", searchQuery.from);
-    console.log("To:", searchQuery.to);
+  const handleSearch = async () => {
+    if (!searchQuery.from || !searchQuery.to) {
+      Alert.alert("Error", "Please enter both starting and destination points");
+      return;
+    }
+
+    if (!selectedFromLocation || !selectedToLocation) {
+      Alert.alert("Error", "Please select valid locations from the suggestions");
+      return;
+    }
+
+    await fetchRoute(selectedFromLocation, selectedToLocation);
     setIsOverlayVisible(true);
     setIsSearchVisible(false);
   };
@@ -167,33 +234,51 @@ const ContactMap = () => {
     setShowTicket(true);
   };
 
-  const handlePayNow = async (totalPrice: string, passengerNames: string[]) => {
-    try {
-      const response = await fetch("http://localhost:5000/payment/initiate-payment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: parseFloat(totalPrice),
-          mobile: "9862732725",
-          purchase_order_id: selectedBus?.id,
-          purchase_order_name: `Bus Ticket for ${selectedBus?.from} to ${selectedBus?.to}`,
-          passengerNames,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        window.location.href = data.data.payment_url;
-      } else {
-        Alert.alert("Payment initiation failed");
-      }
-    } catch (error) {
-      console.error("Error initiating payment:", error);
-      Alert.alert("Payment initiation failed");
+  const getOSMUrlWithRoute = () => {
+    if (!showRoute || routeCoordinates.length === 0) {
+      return openStreetMapUrl;
     }
+
+    // Create a polyline for the route
+    const polyline = routeCoordinates
+      .map(coord => `${coord.lat},${coord.lng}`)
+      .join(',');
+
+    // Add markers for start and end points
+    const markers = [
+      `color:blue|label:S|${selectedFromLocation?.lat},${selectedFromLocation?.lng}`,
+      `color:red|label:E|${selectedToLocation?.lat},${selectedToLocation?.lng}`
+    ].join('&markers=');
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${getBoundingBox()}&layer=mapnik&markers=${markers}&path=color:red|weight:5|${polyline}`;
+  };
+
+  const getBoundingBox = () => {
+    if (!showRoute || routeCoordinates.length === 0) {
+      return [
+        (userLocation?.lng || defaultLocation.lng) - zoomLevel,
+        (userLocation?.lat || defaultLocation.lat) - zoomLevel,
+        (userLocation?.lng || defaultLocation.lng) + zoomLevel,
+        (userLocation?.lat || defaultLocation.lat) + zoomLevel
+      ].join(',');
+    }
+
+    const lats = routeCoordinates.map(c => c.lat);
+    const lngs = routeCoordinates.map(c => c.lng);
+    
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    
+    // Add some padding
+    const padding = 0.02;
+    return [
+      minLng - padding,
+      minLat - padding,
+      maxLng + padding,
+      maxLat + padding
+    ].join(',');
   };
 
   useEffect(() => {
@@ -354,7 +439,7 @@ const ContactMap = () => {
         </Text>
       ) : (
         <iframe
-          src={openStreetMapUrl}
+          src={showRoute ? getOSMUrlWithRoute() : openStreetMapUrl}
           style={{
             ...styles.map,
             pointerEvents: isSearchVisible || isOverlayVisible ? "none" : "auto",
@@ -444,11 +529,15 @@ const ContactMap = () => {
       {isOverlayVisible && (
         <Overlay
           searchQuery={searchQuery}
+          distance={routeDistance}
+          duration={routeDuration}
           onClose={() => {
             setIsOverlayVisible(false);
             setSearchQuery({ from: "", to: "" });
             setFromSuggestions([]);
             setToSuggestions([]);
+            setShowRoute(false);
+            setRouteCoordinates([]);
           }}
         />
       )}
@@ -469,10 +558,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderWidth: 0,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 1,
   },
   permissionText: {
     textAlign: 'center',
