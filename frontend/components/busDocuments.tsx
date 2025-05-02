@@ -38,7 +38,7 @@ const BusDocuments = () => {
   const createDocument = useCreateDocument();
 
   const handleBackPress = () => {
-    router.push("/lists");
+    router.push("/(tabs)/lists");
   };
 
   useEffect(() => {
@@ -120,7 +120,7 @@ const BusDocuments = () => {
             {
               text: "OK",
               onPress: () => {
-                router.push("/lists");
+                router.push("/(tabs)/lists");
               },
             },
           ]);

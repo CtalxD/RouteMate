@@ -76,12 +76,13 @@ model DriverLocation {
   latitude    Float
   longitude   Float
   accuracy    Float?  
-  speed       Float?   
   heading     Float?   
   isOnline    Boolean  @default(false)
   lastUpdated DateTime @updatedAt
 
   @@index([userId])
+  @@index([isOnline])
+  @@index([lastUpdated])
 }
 
 generator client {

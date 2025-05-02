@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList, Alert } from "react-native";
 import { useAuth } from "@/context/auth-context";
 import Profile from "./Profile";
@@ -9,6 +9,14 @@ import Icon from "react-native-vector-icons/Ionicons";
 import Overlay from "./overlay";
 import Ticket from "./tickets";
 import { useRouter } from "expo-router";
+
+// Define Kathmandu boundaries
+const KATHMANDU_BOUNDS = {
+  north: 27.7749,
+  south: 27.6594,
+  west: 85.2536,
+  east: 85.3906
+};
 
 type Location = {
   name: string;
@@ -49,13 +57,14 @@ type RouteResponse = {
 
 const ContactMap = () => {
   const router = useRouter();
-  const [zoomLevel] = useState(0.01);
   const [userLocation, setUserLocation] = useState<Location | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [routeCoordinates, setRouteCoordinates] = useState<RouteCoordinates[]>([]);
   const [showRoute, setShowRoute] = useState(false);
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(14); // Default zoom level
 
   const defaultLocation: Location = {
     name: "Kathmandu",
@@ -78,17 +87,31 @@ const ContactMap = () => {
   const [selectedToLocation, setSelectedToLocation] = useState<Location | null>(null);
   const { onLogout } = useAuth();
 
+  // Check if a location is within Kathmandu bounds
+  const isInKathmandu = (lat: number, lng: number): boolean => {
+    return (
+      lat >= KATHMANDU_BOUNDS.south &&
+      lat <= KATHMANDU_BOUNDS.north &&
+      lng >= KATHMANDU_BOUNDS.west &&
+      lng <= KATHMANDU_BOUNDS.east
+    );
+  };
+
   const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&bounded=1&viewbox=${KATHMANDU_BOUNDS.west},${KATHMANDU_BOUNDS.north},${KATHMANDU_BOUNDS.east},${KATHMANDU_BOUNDS.south}`
       );
       const data = await response.json();
-      return data.map((item: any) => ({
-        name: item.display_name,
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon),
-      }));
+      
+      // Filter results to only include locations within Kathmandu bounds
+      return data
+        .map((item: any) => ({
+          name: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+        }))
+        .filter((loc: Location) => isInKathmandu(loc.lat, loc.lng));
     } catch (error) {
       console.error("Error fetching location suggestions:", error);
       return [];
@@ -111,6 +134,7 @@ const ContactMap = () => {
         setRouteDistance(data.routes[0].distance / 1000); // Convert to km
         setRouteDuration(data.routes[0].duration / 60); // Convert to minutes
         setShowRoute(true);
+        setZoomLevel(13); // Zoom out slightly to show the whole route
         return coordinates;
       }
     } catch (error) {
@@ -179,6 +203,7 @@ const ContactMap = () => {
     setMenuVisible(false);
     setShowRoute(false);
     setRouteCoordinates([]);
+    setZoomLevel(14); // Reset to default zoom level
   };
 
   const navigateToSettings = () => {
@@ -190,9 +215,9 @@ const ContactMap = () => {
   const switchToDriverMode = () => {
     setMenuVisible(false);
     if (profileData?.role === "DRIVER") {
-      router.push("/driver");
+      router.push("/(tabs)/driver");
     } else {
-      router.push("/busdocs");
+      router.push("/(tabs)/busdocs");
       Alert.alert("Access Denied", "You are not assigned the driver role.");
     }
   };
@@ -202,6 +227,7 @@ const ContactMap = () => {
     if (previousPage === "Home") {
       setShowRoute(false);
       setRouteCoordinates([]);
+      setZoomLevel(14); // Reset to default zoom level
     }
   };
 
@@ -213,6 +239,28 @@ const ContactMap = () => {
     setIsSearchVisible(false);
   };
 
+  const handleShowRoute = async () => {
+    if (!searchQuery.from || !searchQuery.to) {
+      Alert.alert("Error", "Please enter both starting and destination points");
+      return;
+    }
+
+    if (!selectedFromLocation || !selectedToLocation) {
+      Alert.alert("Error", "Please select valid locations from the suggestions");
+      return;
+    }
+
+    // Verify both locations are within Kathmandu
+    if (!isInKathmandu(selectedFromLocation.lat, selectedFromLocation.lng) || 
+        !isInKathmandu(selectedToLocation.lat, selectedToLocation.lng)) {
+      Alert.alert("Error", "Both locations must be within Kathmandu valley");
+      return;
+    }
+
+    await fetchRoute(selectedFromLocation, selectedToLocation);
+    setIsSearchVisible(false);
+  };
+
   const handleSearch = async () => {
     if (!searchQuery.from || !searchQuery.to) {
       Alert.alert("Error", "Please enter both starting and destination points");
@@ -221,6 +269,13 @@ const ContactMap = () => {
 
     if (!selectedFromLocation || !selectedToLocation) {
       Alert.alert("Error", "Please select valid locations from the suggestions");
+      return;
+    }
+
+    // Verify both locations are within Kathmandu
+    if (!isInKathmandu(selectedFromLocation.lat, selectedFromLocation.lng) || 
+        !isInKathmandu(selectedToLocation.lat, selectedToLocation.lng)) {
+      Alert.alert("Error", "Both locations must be within Kathmandu valley");
       return;
     }
 
@@ -236,95 +291,147 @@ const ContactMap = () => {
 
   const getOSMUrlWithRoute = () => {
     if (!showRoute || routeCoordinates.length === 0) {
-      return openStreetMapUrl;
+      return getDefaultMapUrl();
     }
 
-    // Create a polyline for the route
     const polyline = routeCoordinates
       .map(coord => `${coord.lat},${coord.lng}`)
       .join(',');
 
-    // Add markers for start and end points
     const markers = [
       `color:blue|label:S|${selectedFromLocation?.lat},${selectedFromLocation?.lng}`,
       `color:red|label:E|${selectedToLocation?.lat},${selectedToLocation?.lng}`
     ].join('&markers=');
 
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${getBoundingBox()}&layer=mapnik&markers=${markers}&path=color:red|weight:5|${polyline}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${getBoundingBox()}&layer=mapnik&markers=${markers}&path=color:red|weight:5|${polyline}&zoom=${zoomLevel}`;
+  };
+
+  const getDefaultMapUrl = () => {
+    if (userLocation) {
+      // Calculate a bounding box around the user's location
+      const padding = 0.01; // Degrees of padding around the user's location
+      const bbox = [
+        userLocation.lng - padding,
+        userLocation.lat - padding,
+        userLocation.lng + padding,
+        userLocation.lat + padding
+      ].join(',');
+      
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${userLocation.lat},${userLocation.lng}&zoom=${zoomLevel}`;
+    } else {
+      // Fallback to Kathmandu bounds if no user location
+      const bbox = [
+        KATHMANDU_BOUNDS.west,
+        KATHMANDU_BOUNDS.south,
+        KATHMANDU_BOUNDS.east,
+        KATHMANDU_BOUNDS.north
+      ].join(',');
+      
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${defaultLocation.lat},${defaultLocation.lng}&zoom=${zoomLevel}`;
+    }
   };
 
   const getBoundingBox = () => {
     if (!showRoute || routeCoordinates.length === 0) {
+      if (userLocation) {
+        // Return a bounding box around the user's location
+        const padding = 0.01;
+        return [
+          userLocation.lng - padding,
+          userLocation.lat - padding,
+          userLocation.lng + padding,
+          userLocation.lat + padding
+        ].join(',');
+      }
+      // Return Kathmandu bounds if no route and no user location
       return [
-        (userLocation?.lng || defaultLocation.lng) - zoomLevel,
-        (userLocation?.lat || defaultLocation.lat) - zoomLevel,
-        (userLocation?.lng || defaultLocation.lng) + zoomLevel,
-        (userLocation?.lat || defaultLocation.lat) + zoomLevel
+        KATHMANDU_BOUNDS.west,
+        KATHMANDU_BOUNDS.south,
+        KATHMANDU_BOUNDS.east,
+        KATHMANDU_BOUNDS.north
       ].join(',');
     }
 
     const lats = routeCoordinates.map(c => c.lat);
     const lngs = routeCoordinates.map(c => c.lng);
     
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
+    // Constrain to Kathmandu bounds
+    const minLat = Math.max(Math.min(...lats), KATHMANDU_BOUNDS.south);
+    const maxLat = Math.min(Math.max(...lats), KATHMANDU_BOUNDS.north);
+    const minLng = Math.max(Math.min(...lngs), KATHMANDU_BOUNDS.west);
+    const maxLng = Math.min(Math.max(...lngs), KATHMANDU_BOUNDS.east);
     
-    // Add some padding
-    const padding = 0.02;
+    const padding = 0.01;
     return [
-      minLng - padding,
-      minLat - padding,
-      maxLng + padding,
-      maxLat + padding
+      Math.max(minLng - padding, KATHMANDU_BOUNDS.west),
+      Math.max(minLat - padding, KATHMANDU_BOUNDS.south),
+      Math.min(maxLng + padding, KATHMANDU_BOUNDS.east),
+      Math.min(maxLat + padding, KATHMANDU_BOUNDS.north)
     ].join(',');
   };
 
   useEffect(() => {
     const requestLocationPermission = async () => {
       if (navigator.geolocation) {
+        // First get current position quickly
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            setPermissionGranted(true);
             const { latitude, longitude } = position.coords;
-            setUserLocation({ name: "User", lat: latitude, lng: longitude });
+            if (isInKathmandu(latitude, longitude)) {
+              setUserLocation({ name: "You", lat: latitude, lng: longitude });
+              setPermissionGranted(true);
+              setZoomLevel(16); // Zoom in more when we have user location
+            } else {
+              setUserLocation(defaultLocation);
+              setPermissionGranted(true);
+              Alert.alert("Notice", "You are outside Kathmandu. Map is centered on Kathmandu.");
+            }
           },
           (error) => {
-            console.error("Error getting location permission:", error);
-            if (error.code === 1) {
-              alert(
-                "Location permission is required to use this feature. Please enable it in your browser settings."
-              );
-            } else {
-              alert(
-                "An error occurred while fetching your location. Please try again."
-              );
+            console.error("Error getting initial location:", error);
+            setUserLocation(defaultLocation);
+            setPermissionGranted(true);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          }
+        );
+
+        // Then watch for continuous updates
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            if (isInKathmandu(latitude, longitude)) {
+              setUserLocation({ name: "You", lat: latitude, lng: longitude });
             }
+            // Else don't update location if outside Kathmandu
+          },
+          (error) => {
+            console.error("Error watching location:", error);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
           }
         );
       } else {
         console.error("Geolocation is not supported by this browser.");
-        alert(
-          "Geolocation is not supported by your browser. Please use a modern browser."
-        );
+        setUserLocation(defaultLocation);
+        setPermissionGranted(true);
       }
     };
 
     requestLocationPermission();
-  }, []);
 
-  const openStreetMapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
-    (userLocation?.lng || defaultLocation.lng) - zoomLevel
-  },${
-    (userLocation?.lat || defaultLocation.lat) - zoomLevel
-  },${
-    (userLocation?.lng || defaultLocation.lng) + zoomLevel
-  },${
-    (userLocation?.lat || defaultLocation.lat) + zoomLevel
-  }&layer=mapnik&marker=${userLocation?.lat || defaultLocation.lat},${
-    userLocation?.lng || defaultLocation.lng
-  }&lang=en&doubleClickZoom=false`;
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
   const renderHamburgerButton = () => (
     <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
@@ -439,7 +546,7 @@ const ContactMap = () => {
         </Text>
       ) : (
         <iframe
-          src={showRoute ? getOSMUrlWithRoute() : openStreetMapUrl}
+          src={showRoute ? getOSMUrlWithRoute() : getDefaultMapUrl()}
           style={{
             ...styles.map,
             pointerEvents: isSearchVisible || isOverlayVisible ? "none" : "auto",
@@ -520,9 +627,14 @@ const ContactMap = () => {
             />
           )}
 
-          <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>Search</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity onPress={handleShowRoute} style={styles.showRouteButton}>
+              <Text style={styles.showRouteButtonText}>Show Route</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
+              <Text style={styles.searchButtonText}>Search</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
 
@@ -538,6 +650,7 @@ const ContactMap = () => {
             setToSuggestions([]);
             setShowRoute(false);
             setRouteCoordinates([]);
+            setZoomLevel(16); // Zoom back in when closing overlay
           }}
         />
       )}
@@ -679,8 +792,8 @@ const styles = StyleSheet.create({
   },
   searchIconContainer: {
     position: 'absolute',
-    top: 20,
-    right: 20,
+    top: 70,
+    left: 20,
     zIndex: 4,
     padding: 10,
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -720,12 +833,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
     marginVertical: 5,
   },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  showRouteButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#4CAF50',
+    borderRadius: 10,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  showRouteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
   searchButton: {
+    flex: 1,
     padding: 15,
     backgroundColor: '#DB2955',
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20,
   },
   searchButtonText: {
     color: 'white',

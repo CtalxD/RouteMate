@@ -37,3 +37,8 @@ export type ForgotPasswordFormData = {
 export interface ForgotPasswordResponse {
   password: string;
 }
+
+export type Coordinate = {
+  latitude: number;
+  longitude: number;
+};

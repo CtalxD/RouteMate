@@ -28,7 +28,7 @@ const Khalti: React.FC<KhaltiProps> = ({
         "http://localhost:5000/payment/initiate",
         {
           amount: payment,
-          return_url: `${window.location.origin}/lists`,
+          return_url: `${window.location.origin}/(tabs)/lists`,
         },
         {
           headers: {

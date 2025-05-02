@@ -87,7 +87,7 @@ const TicketDetailsScreen: React.FC = () => {
   };
 
   const handleDone = () => {
-    router.push('/lists'); // Navigate to tickets list screen
+    router.push('/(tabs)/lists'); // Navigate to tickets list screen
   };
 
   const formatDate = (dateString: string) => {
