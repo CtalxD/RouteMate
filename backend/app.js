@@ -12,7 +12,6 @@ const documentRouter = require("./routes/documentRouter")
 const paymentRoutes = require("./routes/paymentRouter")
 const busRoutes = require("./routes/busRouter");
 const ticketRoutes = require('./routes/ticketRouter');
-const locationRoutes = require("./routes/locationRouter")
 const cookieParser = require("cookie-parser")
 const { config } = require("./config")
 const cors = require("cors")
@@ -153,7 +152,6 @@ app.use("/payment", paymentRoutes)
 app.use("/admin", adminRoutes)
 app.use("/buses", busRoutes);
 app.use('/tickets', ticketRoutes);
-app.use("/locations", locationRoutes)
 
 
 // Error handling middleware
