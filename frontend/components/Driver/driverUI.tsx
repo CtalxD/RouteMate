@@ -33,10 +33,10 @@ const DriverUI = () => {
   const [isOnline, setIsOnline] = useState(false)
   const router = useRouter()
   const socketRef = useRef<Socket | null>(null)
-  const auth = useAuth()
   const [] = useState<Record<string, UserLocation>>({})
   const mapRef = useRef<HTMLIFrameElement>(null)
   const locationWatchIdRef = useRef<number | null>(null)
+  const { user } = useAuth()
 
   const defaultLocation: Location = {
     name: "Kathmandu",
@@ -44,7 +44,7 @@ const DriverUI = () => {
     lng: 85.324,
   }
 
-  const {} = useGetProfile()
+  const { data: profileData } = useGetProfile()
   const [menuVisible, setMenuVisible] = useState(false)
   const [currentPage, setCurrentPage] = useState("Home")
   const [previousPage, setPreviousPage] = useState("Home")
@@ -52,7 +52,6 @@ const DriverUI = () => {
 
   // Initialize Socket.io connection
   useEffect(() => {
-    // Connect to Socket.io server
     socketRef.current = io(API_URL, {
       withCredentials: true,
       transports: ["websocket"],
@@ -62,8 +61,14 @@ const DriverUI = () => {
 
     socket.on("connect", () => {
       console.log("Connected to socket server with ID:", socket.id)
+      
+      if (user?.id) {
+        socket.emit("authenticate", {
+          userId: user.id,
+          userType: 'driver'
+        })
+      }
 
-      // If was online before, restore status
       if (isOnline) {
         handleToggleOnline(true)
       }
@@ -86,21 +91,237 @@ const DriverUI = () => {
       console.log("Disconnected from socket server:", reason)
     })
 
-    // Clean up socket connection on component unmount
     return () => {
       if (socket) {
         console.log("Disconnecting socket")
         socket.disconnect()
       }
     }
+  }, [user])
+
+  // Request location permission and set up periodic updates
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      try {
+        if (navigator.permissions) {
+          const permission = await navigator.permissions.query({ name: 'geolocation' })
+          if (permission.state === 'granted') {
+            setPermissionGranted(true)
+            startLocationTracking()
+          } else if (permission.state === 'prompt') {
+            navigator.geolocation.getCurrentPosition(
+              () => {
+                setPermissionGranted(true)
+                startLocationTracking()
+              },
+              handleLocationError,
+              { enableHighAccuracy: true }
+            )
+          }
+          
+          permission.onchange = () => {
+            if (permission.state === 'granted') {
+              setPermissionGranted(true)
+              startLocationTracking()
+            } else {
+              setPermissionGranted(false)
+              stopLocationTracking()
+            }
+          }
+        } else {
+          // Fallback for browsers that don't support permissions API
+          navigator.geolocation.getCurrentPosition(
+            () => {
+              setPermissionGranted(true)
+              startLocationTracking()
+            },
+            handleLocationError,
+            { enableHighAccuracy: true }
+          )
+        }
+      } catch (error) {
+        console.error("Error checking permissions:", error)
+        // Try the fallback method
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            setPermissionGranted(true)
+            startLocationTracking()
+          },
+          handleLocationError,
+          { enableHighAccuracy: true }
+        )
+      }
+    }
+
+    const handleLocationError = (error: GeolocationPositionError) => {
+      console.error("Location error:", error)
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          Alert.alert("Permission Denied", "Please enable location permissions in your browser settings.")
+          break
+        case error.POSITION_UNAVAILABLE:
+          Alert.alert("Position Unavailable", "Location information is unavailable.")
+          break
+        case error.TIMEOUT:
+          Alert.alert("Timeout", "The request to get user location timed out.")
+          break
+        default:
+          Alert.alert("Error", "An unknown error occurred while getting your location.")
+      }
+    }
+
+    if (!navigator.geolocation) {
+      console.error("Geolocation is not supported by this browser.")
+      Alert.alert("Geolocation Not Supported", "Please use a modern browser that supports geolocation.")
+      return
+    }
+
+    requestLocationPermission()
+
+    return () => {
+      stopLocationTracking()
+    }
   }, [])
+
+  // Start location tracking with 5-second updates
+  const startLocationTracking = () => {
+    if (!permissionGranted) return
+
+    // Clear any existing watch
+    stopLocationTracking()
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000, // Increased timeout for better reliability
+      maximumAge: 0, // Always get fresh position
+    }
+
+    // Get initial position immediately
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        handlePositionUpdate(position)
+      },
+      (error) => {
+        console.error("Error getting initial position:", error)
+      },
+      options
+    )
+
+    // Set up periodic updates (every 5 seconds)
+    locationWatchIdRef.current = navigator.geolocation.watchPosition(
+      handlePositionUpdate,
+      (error) => {
+        console.error("Error watching location:", error)
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 5000, // Accept positions up to 5 seconds old
+      }
+    )
+
+    // Also set up a backup interval in case watchPosition fails
+    const backupInterval = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        handlePositionUpdate,
+        (error) => {
+          console.error("Backup location error:", error)
+        },
+        options
+      )
+    }, 5000) // 5 seconds
+
+    return () => {
+      clearInterval(backupInterval)
+    }
+  }
+
+  const handlePositionUpdate = (position: GeolocationPosition) => {
+    const { latitude, longitude, accuracy } = position.coords
+    console.log(`Position updated at ${new Date().toISOString()} with accuracy: ${accuracy} meters`)
+
+    const location = { name: "User", lat: latitude, lng: longitude }
+    setUserLocation(location)
+
+    if (socketRef.current && isOnline) {
+      socketRef.current.emit("update-location", {
+        latitude,
+        longitude,
+        accuracy,
+        isOnline: true,
+        isDriver: true,
+        userId: user?.id,
+        timestamp: Date.now()
+      })
+    }
+  }
+
+  const stopLocationTracking = () => {
+    if (locationWatchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchIdRef.current)
+      locationWatchIdRef.current = null
+    }
+  }
+
+  // Handle online status changes
+  useEffect(() => {
+    if (isOnline && permissionGranted) {
+      startLocationTracking()
+    } else {
+      stopLocationTracking()
+    }
+
+    return () => {
+      stopLocationTracking()
+    }
+  }, [isOnline, permissionGranted])
+
+  const handleToggleOnline = (status: boolean) => {
+    if (!socketRef.current) {
+      Alert.alert("Error", "Cannot update status. Please try again later.")
+      return
+    }
+
+    setIsOnline(status)
+    console.log(`User is now ${status ? "online" : "offline"}`)
+
+    if (status && permissionGranted) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords
+          socketRef.current?.emit("toggle-online-status", {
+            status,
+            isDriver: true,
+            latitude,
+            longitude,
+            accuracy,
+            userId: user?.id
+          })
+        },
+        (error) => {
+          console.error("Error getting location for status update:", error)
+          socketRef.current?.emit("toggle-online-status", {
+            status,
+            isDriver: true,
+            userId: user?.id
+          })
+        },
+        { enableHighAccuracy: true }
+      )
+    } else {
+      socketRef.current.emit("toggle-online-status", {
+        status,
+        isDriver: true,
+        userId: user?.id
+      })
+    }
+  }
 
   const toggleMenu = () => {
     setMenuVisible((prev) => !prev)
   }
 
   const handleLogout = () => {
-    // Set offline before logout
     if (isOnline) {
       handleToggleOnline(false)
     }
@@ -127,7 +348,6 @@ const DriverUI = () => {
   }
 
   const switchToPassengerMode = () => {
-    // Set offline before switching modes
     if (isOnline) {
       handleToggleOnline(false)
     }
@@ -139,144 +359,14 @@ const DriverUI = () => {
     setCurrentPage(previousPage)
   }
 
-  const handleToggleOnline = (status: boolean) => {
-    if (!socketRef.current) {
-      Alert.alert("Error", "Cannot update status. Please try again later.")
-      return
-    }
-
-    setIsOnline(status)
-    console.log(`User is now ${status ? "online" : "offline"}`)
-
-    // Send status update to server via socket
-    socketRef.current.emit("toggle-online-status", {
-      status,
-    })
-
-    // Start or stop location tracking based on online status
-    if (status) {
-      startLocationTracking()
-    } else {
-      stopLocationTracking()
-    }
-  }
-
-  // Request location permission
-  useEffect(() => {
-    const requestLocationPermission = async () => {
-      try {
-        const permission = await navigator.permissions.query({ name: "geolocation" })
-        if (permission.state === "granted") {
-          setPermissionGranted(true)
-        } else if (permission.state === "prompt") {
-          // Request permission with high accuracy options
-          navigator.geolocation.getCurrentPosition(
-            () => setPermissionGranted(true),
-            (error) => handleLocationError(error),
-            { enableHighAccuracy: true },
-          )
-        }
-      } catch (error) {
-        // Fallback for browsers that don't support permissions API
-        navigator.geolocation.getCurrentPosition(
-          () => setPermissionGranted(true),
-          (error) => handleLocationError(error),
-          { enableHighAccuracy: true },
-        )
-      }
-    }
-
-    const handleLocationError = (error: GeolocationPositionError) => {
-      console.error("Error getting location permission:", error)
-      if (error.code === 1) {
-        alert("Location permission is required to use this feature. Please enable it in your browser settings.")
-      } else {
-        alert("An error occurred while fetching your location. Please try again.")
-      }
-    }
-
-    if (!navigator.geolocation) {
-      console.error("Geolocation is not supported by this browser.")
-      alert("Geolocation is not supported by your browser. Please use a modern browser.")
-      return
-    }
-
-    requestLocationPermission()
-  }, [])
-
-  // Start location tracking
-  const startLocationTracking = () => {
-    if (!permissionGranted) return
-
-    // Clear any existing watch
-    if (locationWatchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(locationWatchIdRef.current)
-    }
-
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 10000, // 10 seconds
-      maximumAge: 0, // No cache, always get fresh position
-    }
-
-    locationWatchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords
-        console.log(`Position acquired with accuracy: ${accuracy} meters`)
-
-        const location = { name: "User", lat: latitude, lng: longitude }
-        setUserLocation(location)
-
-        // Send location updates to server since we're online
-        if (socketRef.current) {
-          socketRef.current.emit("update-location", {
-            latitude,
-            longitude,
-            accuracy,
-            isOnline: true,
-          })
-        }
-      },
-      (error) => {
-        console.error("Error getting location:", error)
-      },
-      options,
-    )
-  }
-
-  // Stop location tracking
-  const stopLocationTracking = () => {
-    if (locationWatchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(locationWatchIdRef.current)
-      locationWatchIdRef.current = null
-    }
-  }
-
-  // Start or stop location tracking when online status or permission changes
-  useEffect(() => {
-    if (isOnline && permissionGranted) {
-      startLocationTracking()
-    } else {
-      stopLocationTracking()
-    }
-
-    return () => {
-      stopLocationTracking()
-    }
-  }, [isOnline, permissionGranted])
-
-  // Create map URL based on user's location
   const createMapUrl = () => {
     const baseLocation = userLocation || defaultLocation
-
-    // Start with the base map URL
     let mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${
       baseLocation.lng - zoomLevel
     },${baseLocation.lat - zoomLevel},${baseLocation.lng + zoomLevel},${
       baseLocation.lat + zoomLevel
     }&layer=mapnik&lang=en&doubleClickZoom=false`
 
-    // Add the current user's marker only if online
     if (userLocation && isOnline) {
       mapUrl += `&marker=${userLocation.lat},${userLocation.lng}`
     }
@@ -290,28 +380,22 @@ const DriverUI = () => {
     if (currentPage !== "Home") return null
 
     return (
-      <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
-        <View style={styles.outsideBar} />
-        <View style={styles.outsideBar} />
-        <View style={styles.outsideBar} />
-      </TouchableOpacity>
-    )
-  }
-
-  // Online/Offline toggle button
-  const renderOnlineToggle = () => {
-    if (currentPage !== "Home") return null
-
-    return (
-      <TouchableOpacity
-        onPress={() => handleToggleOnline(!isOnline)}
-        style={[
-          styles.onlineToggle,
-          { backgroundColor: isOnline ? "rgba(46, 204, 113, 0.8)" : "rgba(231, 76, 60, 0.8)" },
-        ]}
-      >
-        <Text style={styles.onlineToggleText}>{isOnline ? "Online" : "Offline"}</Text>
-      </TouchableOpacity>
+      <View style={styles.leftControlsContainer}>
+        <TouchableOpacity onPress={toggleMenu} style={styles.hamburgerButton}>
+          <View style={styles.outsideBar} />
+          <View style={styles.outsideBar} />
+          <View style={styles.outsideBar} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => handleToggleOnline(!isOnline)}
+          style={[
+            styles.onlineToggle,
+            { backgroundColor: isOnline ? "rgba(46, 204, 113, 0.8)" : "rgba(231, 76, 60, 0.8)" },
+          ]}
+        >
+          <Text style={styles.onlineToggleText}>{isOnline ? "Online" : "Offline"}</Text>
+        </TouchableOpacity>
+      </View>
     )
   }
 
@@ -343,14 +427,19 @@ const DriverUI = () => {
   return (
     <View style={styles.container}>
       {renderHamburgerButton()}
-      {renderOnlineToggle()}
 
       {!permissionGranted ? (
         <Text style={styles.permissionText}>
           Location permission is required to use the map. Please enable it in your browser settings.
         </Text>
       ) : (
-        <iframe ref={mapRef} src={openStreetMapUrl} style={styles.map} title="OpenStreetMap" allow="geolocation" />
+        <iframe 
+          ref={mapRef} 
+          src={openStreetMapUrl} 
+          style={styles.map} 
+          title="OpenStreetMap" 
+          allow="geolocation *" 
+        />
       )}
 
       {menuVisible && (
@@ -389,14 +478,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "red",
   },
-  hamburgerButton: {
+  leftControlsContainer: {
     position: "absolute",
     top: 20,
     left: 20,
     zIndex: 3,
+    alignItems: "flex-start",
+  },
+  hamburgerButton: {
     padding: 10,
     backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 5,
+    marginBottom: 10,
   },
   outsideBar: {
     height: 4,
@@ -404,6 +497,17 @@ const styles = StyleSheet.create({
     backgroundColor: "black",
     marginVertical: 3,
     borderRadius: 2,
+  },
+  onlineToggle: {
+    padding: 10,
+    borderRadius: 5,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  onlineToggleText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   backButton: {
     position: "absolute",
@@ -438,21 +542,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     marginTop: 60,
-  },
-  onlineToggle: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    zIndex: 3,
-    padding: 10,
-    borderRadius: 5,
-    minWidth: 100,
-    alignItems: "center",
-  },
-  onlineToggleText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 })
 

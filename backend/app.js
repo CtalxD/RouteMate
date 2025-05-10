@@ -1,5 +1,3 @@
-//backend/app.js
-
 const express = require("express")
 const app = express()
 const http = require("http")
@@ -51,15 +49,34 @@ io.on("connection", (socket) => {
     socket,
     userId: null, // Will be set when user authenticates
     isOnline: false,
+    userType: null, // 'driver' or 'passenger'
   })
 
-  // Handle location updates
+  // Handle user authentication
+  socket.on("authenticate", (data) => {
+    if (data.userId) {
+      console.log(`User authenticated: ${data.userId} as ${data.userType || 'user'}`)
+      const userInfo = connectedUsers.get(socket.id) || {}
+      connectedUsers.set(socket.id, {
+        ...userInfo,
+        userId: data.userId,
+        userType: data.userType || 'user'
+      })
+    }
+  })
+
+  // Handle location updates from drivers
   socket.on("update-location", (data) => {
     console.log("Location update received:", data)
+    
+    const user = connectedUsers.get(socket.id)
+    const userId = user?.userId || socket.id
 
-    // Store the user's location
+    // Store the user's location with user ID
     userLocations.set(socket.id, {
       socketId: socket.id,
+      userId,
+      userType: user?.userType || 'unknown',
       ...data,
       timestamp: Date.now(),
     })
@@ -67,8 +84,20 @@ io.on("connection", (socket) => {
     // Broadcast to all clients except sender
     socket.broadcast.emit("location-updated", {
       socketId: socket.id,
+      userId,
+      userType: user?.userType || 'unknown',
       ...data,
     })
+
+    // Broadcast driver location updates to dashboard
+    if (user?.userType === 'driver' || data.isDriver) {
+      socket.broadcast.emit("driver-location-updated", {
+        socketId: socket.id,
+        userId,
+        ...data,
+        timestamp: Date.now(),
+      })
+    }
 
     // Acknowledge receipt
     socket.emit("location-updated", {
@@ -87,11 +116,24 @@ io.on("connection", (socket) => {
       const user = connectedUsers.get(socket.id)
       user.isOnline = data.status
       connectedUsers.set(socket.id, user)
+      
+      // Broadcast driver status to dashboard
+      if (user.userType === 'driver' || data.isDriver) {
+        io.emit("driver-status-changed", {
+          socketId: socket.id,
+          userId: user.userId || socket.id,
+          status: data.status,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          accuracy: data.accuracy
+        })
+      }
     }
 
     // Broadcast to all clients
     io.emit("status-changed", {
       socketId: socket.id,
+      userId: connectedUsers.get(socket.id)?.userId || socket.id,
       status: data.status,
     })
 
@@ -103,11 +145,35 @@ io.on("connection", (socket) => {
     })
   })
 
+  // Handle requests for current driver data
+  socket.on("get-current-drivers", () => {
+    const activeDrivers = []
+    
+    // Collect all online drivers
+    userLocations.forEach((location, socketId) => {
+      const user = connectedUsers.get(socketId)
+      if (user && user.isOnline && (user.userType === 'driver' || location.isDriver)) {
+        activeDrivers.push({
+          socketId,
+          userId: user.userId || socketId,
+          ...location
+        })
+      }
+    })
+    
+    // Send current drivers to requesting client
+    socket.emit("current-drivers", activeDrivers)
+  })
+
   // Send current online users to newly connected client
   const currentUsers = []
   userLocations.forEach((location, socketId) => {
     if (connectedUsers.has(socketId) && connectedUsers.get(socketId).isOnline) {
-      currentUsers.push(location)
+      currentUsers.push({
+        ...location,
+        userId: connectedUsers.get(socketId).userId || socketId,
+        userType: connectedUsers.get(socketId).userType || 'unknown'
+      })
     }
   })
 
@@ -118,6 +184,16 @@ io.on("connection", (socket) => {
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`)
+    const user = connectedUsers.get(socket.id)
+    
+    // Notify about driver disconnection if applicable
+    if (user && (user.userType === 'driver')) {
+      socket.broadcast.emit("driver-disconnected", { 
+        socketId: socket.id,
+        userId: user.userId || socket.id
+      })
+    }
+    
     connectedUsers.delete(socket.id)
     userLocations.delete(socket.id)
 

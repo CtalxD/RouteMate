@@ -1,183 +1,275 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, FlatList, Alert } from "react-native";
+import { 
+  View, 
+  StyleSheet, 
+  Text, 
+  TouchableOpacity, 
+  Image, 
+  Alert, 
+  Platform, 
+  TextInput,
+  FlatList,
+  ActivityIndicator
+} from "react-native";
 import { useAuth } from "@/context/auth-context";
-import Profile from "./Profile";
+import { useRouter } from "expo-router";
+import Icon from "react-native-vector-icons/Ionicons";
 import { useGetProfile } from "@/services/profile.service";
+import Profile from "./Profile";
 import Booking from "./Booking";
 import Settings from "./Settings";
-import Icon from "react-native-vector-icons/Ionicons";
 import Overlay from "./overlay";
-import Ticket from "./tickets";
-import { useRouter } from "expo-router";
+import type { WebViewMessageEvent } from "react-native-webview";
 
-// Define Kathmandu boundaries
-const KATHMANDU_BOUNDS = {
-  north: 27.7749,
-  south: 27.6594,
-  west: 85.2536,
-  east: 85.3906
-};
-
-type Location = {
+// Define types for location suggestions and selected locations
+interface LocationSuggestion {
+  id: string;
   name: string;
   lat: number;
-  lng: number;
-};
+  lon: number;
+}
 
-type Suggestion = Location;
-
-type BusRecommendation = {
-  id: string;
-  numberPlate: string;
-  from: string;
-  to: string;
-  departureTime: string;
-  estimatedTime: string;
-  price: string;
-};
-
-type RouteCoordinates = {
+interface SelectedLocation {
+  name: string;
   lat: number;
-  lng: number;
-};
+  lon: number;
+}
 
-type RouteResponse = {
-  routes: {
-    geometry: {
-      coordinates: [number, number][];
-    };
-    distance: number;
-    duration: number;
-  }[];
-  waypoints: {
-    location: [number, number];
-    name: string;
-  }[];
-};
+// Conditionally import WebView to handle platform differences
+let WebView: any;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').WebView;
+} else {
+  WebView = null;
+}
+
+// Kathmandu bounding box coordinates
+const KATHMANDU_BOUNDS = "85.2,27.6,85.5,27.8";
 
 const ContactMap = () => {
+  const webViewRef = useRef<any>(null);
   const router = useRouter();
-  const [userLocation, setUserLocation] = useState<Location | null>(null);
-  const [permissionGranted, setPermissionGranted] = useState(false);
-  const [routeCoordinates, setRouteCoordinates] = useState<RouteCoordinates[]>([]);
-  const [showRoute, setShowRoute] = useState(false);
-  const [routeDistance, setRouteDistance] = useState<number | null>(null);
-  const [routeDuration, setRouteDuration] = useState<number | null>(null);
-  const watchIdRef = useRef<number | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(14); // Default zoom level
-
-  const defaultLocation: Location = {
-    name: "Kathmandu",
-    lat: 27.7172,
-    lng: 85.324,
-  };
-
   const { data: profileData } = useGetProfile();
   const [menuVisible, setMenuVisible] = useState(false);
   const [currentPage, setCurrentPage] = useState("Home");
   const [previousPage, setPreviousPage] = useState("Home");
-  const [isSearchVisible, setIsSearchVisible] = useState(false);
-  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState({ from: "", to: "" });
-  const [fromSuggestions, setFromSuggestions] = useState<Suggestion[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<Suggestion[]>([]);
-  const [showTicket, setShowTicket] = useState(false);
-  const [selectedBus, setSelectedBus] = useState<BusRecommendation | null>(null);
-  const [selectedFromLocation, setSelectedFromLocation] = useState<Location | null>(null);
-  const [selectedToLocation, setSelectedToLocation] = useState<Location | null>(null);
   const { onLogout } = useAuth();
+  const [searchVisible, setSearchVisible] = useState(false);
+  const [fromLocation, setFromLocation] = useState("");
+  const [toLocation, setToLocation] = useState("");
+  const [fromSuggestions, setFromSuggestions] = useState<LocationSuggestion[]>([]);
+  const [toSuggestions, setToSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isLoadingFrom, setIsLoadingFrom] = useState(false);
+  const [isLoadingTo, setIsLoadingTo] = useState(false);
+  const [activeField, setActiveField] = useState<'from' | 'to' | null>(null);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [selectedFromLocation, setSelectedFromLocation] = useState<SelectedLocation | null>(null);
+  const [selectedToLocation, setSelectedToLocation] = useState<SelectedLocation | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isOverlayVisible, setIsOverlayVisible] = useState(false);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
+  const [routeDuration, setRouteDuration] = useState<number | null>(null);
 
-  // Check if a location is within Kathmandu bounds
-  const isInKathmandu = (lat: number, lng: number): boolean => {
-    return (
-      lat >= KATHMANDU_BOUNDS.south &&
-      lat <= KATHMANDU_BOUNDS.north &&
-      lng >= KATHMANDU_BOUNDS.west &&
-      lng <= KATHMANDU_BOUNDS.east
-    );
-  };
-
-  const fetchLocationSuggestions = async (query: string): Promise<Suggestion[]> => {
+  const fetchSuggestions = async (
+    query: string, 
+    setLoading: React.Dispatch<React.SetStateAction<boolean>>, 
+    setSuggestions: React.Dispatch<React.SetStateAction<LocationSuggestion[]>>
+  ) => {
+    if (!query || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    
+    setLoading(true);
+    
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&bounded=1&viewbox=${KATHMANDU_BOUNDS.west},${KATHMANDU_BOUNDS.north},${KATHMANDU_BOUNDS.east},${KATHMANDU_BOUNDS.south}`
+        `https://nominatim.openstreetmap.org/search?` +
+        `q=${encodeURIComponent(query)}` +
+        `&format=json` +
+        `&viewbox=${KATHMANDU_BOUNDS}` +
+        `&bounded=1` +
+        `&limit=5` +
+        `&addressdetails=1`
       );
-      const data = await response.json();
       
-      // Filter results to only include locations within Kathmandu bounds
-      return data
-        .map((item: any) => ({
+      if (response.ok) {
+        const data = await response.json();
+        const formattedSuggestions = data.map((item: any) => ({
+          id: item.place_id.toString(),
           name: item.display_name,
           lat: parseFloat(item.lat),
-          lng: parseFloat(item.lon),
-        }))
-        .filter((loc: Location) => isInKathmandu(loc.lat, loc.lng));
-    } catch (error) {
-      console.error("Error fetching location suggestions:", error);
-      return [];
-    }
-  };
-
-  const fetchRoute = async (start: Location, end: Location) => {
-    try {
-      const response = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
-      );
-      const data: RouteResponse = await response.json();
-      
-      if (data.routes && data.routes.length > 0) {
-        const coordinates = data.routes[0].geometry.coordinates.map(coord => ({
-          lng: coord[0],
-          lat: coord[1]
+          lon: parseFloat(item.lon),
         }));
-        setRouteCoordinates(coordinates);
-        setRouteDistance(data.routes[0].distance / 1000); // Convert to km
-        setRouteDuration(data.routes[0].duration / 60); // Convert to minutes
-        setShowRoute(true);
-        setZoomLevel(13); // Zoom out slightly to show the whole route
-        return coordinates;
+        
+        setSuggestions(formattedSuggestions);
+      } else {
+        console.error("Failed to fetch suggestions:", response.status);
+        setSuggestions([]);
       }
     } catch (error) {
-      console.error("Error fetching route:", error);
-      Alert.alert("Error", "Could not fetch route. Please try again.");
+      console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
+    } finally {
+      setLoading(false);
     }
-    return [];
   };
-
-  const handleFromInputChange = async (text: string) => {
-    setSearchQuery({ ...searchQuery, from: text });
-    if (text.length > 2) {
-      const suggestions = await fetchLocationSuggestions(text);
-      setFromSuggestions(suggestions);
-    } else {
+  
+  const sendMessageToMap = (message: any) => {
+    if (Platform.OS === 'web') {
+      const iframe = document.querySelector('iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(message, '*');
+        return true;
+      }
+      return false;
+    } else if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify(message));
+      return true;
+    }
+    return false;
+  };
+  
+  const handleFromLocationChange = (text: string) => {
+    setFromLocation(text);
+    setActiveField('from');
+    
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      fetchSuggestions(text, setIsLoadingFrom, setFromSuggestions);
+    }, 500);
+    
+    setDebounceTimer(timer);
+  };
+  
+  const handleToLocationChange = (text: string) => {
+    setToLocation(text);
+    setActiveField('to');
+    
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      fetchSuggestions(text, setIsLoadingTo, setToSuggestions);
+    }, 500);
+    
+    setDebounceTimer(timer);
+  };
+  
+  const handleSelectSuggestion = (suggestion: LocationSuggestion) => {
+    if (activeField === 'from') {
+      setFromLocation(suggestion.name);
       setFromSuggestions([]);
-    }
-  };
-
-  const handleToInputChange = async (text: string) => {
-    setSearchQuery({ ...searchQuery, to: text });
-    if (text.length > 2) {
-      const suggestions = await fetchLocationSuggestions(text);
-      setToSuggestions(suggestions);
-    } else {
+      setSelectedFromLocation({
+        name: suggestion.name,
+        lat: suggestion.lat,
+        lon: suggestion.lon
+      });
+      
+      sendMessageToMap({
+        type: 'ADD_FROM_MARKER',
+        lat: suggestion.lat,
+        lon: suggestion.lon,
+        name: suggestion.name
+      });
+    } else if (activeField === 'to') {
+      setToLocation(suggestion.name);
       setToSuggestions([]);
+      setSelectedToLocation({
+        name: suggestion.name,
+        lat: suggestion.lat,
+        lon: suggestion.lon
+      });
+      
+      sendMessageToMap({
+        type: 'ADD_TO_MARKER',
+        lat: suggestion.lat,
+        lon: suggestion.lon,
+        name: suggestion.name
+      });
     }
+    
+    setActiveField(null);
   };
-
-  const handleSuggestionPress = (field: string, suggestion: Suggestion) => {
-    if (field === "from") {
-      setSearchQuery({ ...searchQuery, from: suggestion.name });
-      setSelectedFromLocation(suggestion);
+  
+  useEffect(() => {
+    if (!searchVisible) {
       setFromSuggestions([]);
-    } else {
-      setSearchQuery({ ...searchQuery, to: suggestion.name });
-      setSelectedToLocation(suggestion);
       setToSuggestions([]);
+      setActiveField(null);
     }
-  };
+  }, [searchVisible]);
+  
+  useEffect(() => {
+    if (isMapReady) {
+      if (selectedFromLocation) {
+        sendMessageToMap({
+          type: 'ADD_FROM_MARKER',
+          lat: selectedFromLocation.lat,
+          lon: selectedFromLocation.lon,
+          name: selectedFromLocation.name
+        });
+      }
+      
+      if (selectedToLocation) {
+        sendMessageToMap({
+          type: 'ADD_TO_MARKER',
+          lat: selectedToLocation.lat,
+          lon: selectedToLocation.lon,
+          name: selectedToLocation.name
+        });
+      }
+      
+      if (selectedFromLocation && selectedToLocation) {
+        sendMessageToMap({
+          type: 'SHOW_ROUTE',
+          from: selectedFromLocation,
+          to: selectedToLocation
+        });
+      }
+    }
+  }, [isMapReady]);
 
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
+  };
+
+  const toggleSearch = () => {
+    setSearchVisible(!searchVisible);
+  };
+
+  const handleFindRoute = () => {
+    if (selectedFromLocation && selectedToLocation) {
+      sendMessageToMap({
+        type: 'SHOW_ROUTE',
+        from: selectedFromLocation,
+        to: selectedToLocation
+      });
+      
+      // Calculate distance and duration (simplified for demo)
+      // In a real app, you would get these from the routing service
+      const distance = Math.random() * 10 + 5; // Random distance between 5-15 km
+      const duration = distance * 3; // Rough estimate: 3 mins per km
+      
+      setRouteDistance(distance);
+      setRouteDuration(duration);
+      
+      Alert.alert("Route Found", `Showing route from ${fromLocation} to ${toLocation}`);
+    } else {
+      Alert.alert("Input Required", "Please select both starting and destination locations");
+    }
+  };
+
+  const handleSearch = () => {
+    if (selectedFromLocation && selectedToLocation) {
+      setIsOverlayVisible(true);
+    } else {
+      Alert.alert("Input Required", "Please select both starting and destination locations");
+    }
   };
 
   const handleLogout = () => {
@@ -201,15 +293,16 @@ const ContactMap = () => {
     setPreviousPage(currentPage);
     setCurrentPage("Home");
     setMenuVisible(false);
-    setShowRoute(false);
-    setRouteCoordinates([]);
-    setZoomLevel(14); // Reset to default zoom level
   };
 
   const navigateToSettings = () => {
     setPreviousPage(currentPage);
     setCurrentPage("Settings");
     setMenuVisible(false);
+  };
+
+  const handleBack = () => {
+    setCurrentPage(previousPage);
   };
 
   const switchToDriverMode = () => {
@@ -222,215 +315,269 @@ const ContactMap = () => {
     }
   };
 
-  const handleBack = () => {
-    setCurrentPage(previousPage);
-    if (previousPage === "Home") {
-      setShowRoute(false);
-      setRouteCoordinates([]);
-      setZoomLevel(14); // Reset to default zoom level
-    }
-  };
-
-  const handleSearchIconClick = () => {
-    setIsSearchVisible(true);
-  };
-
-  const closeSearchOverlay = () => {
-    setIsSearchVisible(false);
-  };
-
-  const handleShowRoute = async () => {
-    if (!searchQuery.from || !searchQuery.to) {
-      Alert.alert("Error", "Please enter both starting and destination points");
-      return;
-    }
-
-    if (!selectedFromLocation || !selectedToLocation) {
-      Alert.alert("Error", "Please select valid locations from the suggestions");
-      return;
-    }
-
-    // Verify both locations are within Kathmandu
-    if (!isInKathmandu(selectedFromLocation.lat, selectedFromLocation.lng) || 
-        !isInKathmandu(selectedToLocation.lat, selectedToLocation.lng)) {
-      Alert.alert("Error", "Both locations must be within Kathmandu valley");
-      return;
-    }
-
-    await fetchRoute(selectedFromLocation, selectedToLocation);
-    setIsSearchVisible(false);
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.from || !searchQuery.to) {
-      Alert.alert("Error", "Please enter both starting and destination points");
-      return;
-    }
-
-    if (!selectedFromLocation || !selectedToLocation) {
-      Alert.alert("Error", "Please select valid locations from the suggestions");
-      return;
-    }
-
-    // Verify both locations are within Kathmandu
-    if (!isInKathmandu(selectedFromLocation.lat, selectedFromLocation.lng) || 
-        !isInKathmandu(selectedToLocation.lat, selectedToLocation.lng)) {
-      Alert.alert("Error", "Both locations must be within Kathmandu valley");
-      return;
-    }
-
-    await fetchRoute(selectedFromLocation, selectedToLocation);
-    setIsOverlayVisible(true);
-    setIsSearchVisible(false);
-  };
-
-  const handleBookNow = (bus: BusRecommendation) => {
-    setSelectedBus(bus);
-    setShowTicket(true);
-  };
-
-  const getOSMUrlWithRoute = () => {
-    if (!showRoute || routeCoordinates.length === 0) {
-      return getDefaultMapUrl();
-    }
-
-    const polyline = routeCoordinates
-      .map(coord => `${coord.lat},${coord.lng}`)
-      .join(',');
-
-    const markers = [
-      `color:blue|label:S|${selectedFromLocation?.lat},${selectedFromLocation?.lng}`,
-      `color:red|label:E|${selectedToLocation?.lat},${selectedToLocation?.lng}`
-    ].join('&markers=');
-
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${getBoundingBox()}&layer=mapnik&markers=${markers}&path=color:red|weight:5|${polyline}&zoom=${zoomLevel}`;
-  };
-
-  const getDefaultMapUrl = () => {
-    if (userLocation) {
-      // Calculate a bounding box around the user's location
-      const padding = 0.01; // Degrees of padding around the user's location
-      const bbox = [
-        userLocation.lng - padding,
-        userLocation.lat - padding,
-        userLocation.lng + padding,
-        userLocation.lat + padding
-      ].join(',');
-      
-      return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${userLocation.lat},${userLocation.lng}&zoom=${zoomLevel}`;
-    } else {
-      // Fallback to Kathmandu bounds if no user location
-      const bbox = [
-        KATHMANDU_BOUNDS.west,
-        KATHMANDU_BOUNDS.south,
-        KATHMANDU_BOUNDS.east,
-        KATHMANDU_BOUNDS.north
-      ].join(',');
-      
-      return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${defaultLocation.lat},${defaultLocation.lng}&zoom=${zoomLevel}`;
-    }
-  };
-
-  const getBoundingBox = () => {
-    if (!showRoute || routeCoordinates.length === 0) {
-      if (userLocation) {
-        // Return a bounding box around the user's location
-        const padding = 0.01;
-        return [
-          userLocation.lng - padding,
-          userLocation.lat - padding,
-          userLocation.lng + padding,
-          userLocation.lat + padding
-        ].join(',');
-      }
-      // Return Kathmandu bounds if no route and no user location
-      return [
-        KATHMANDU_BOUNDS.west,
-        KATHMANDU_BOUNDS.south,
-        KATHMANDU_BOUNDS.east,
-        KATHMANDU_BOUNDS.north
-      ].join(',');
-    }
-
-    const lats = routeCoordinates.map(c => c.lat);
-    const lngs = routeCoordinates.map(c => c.lng);
-    
-    // Constrain to Kathmandu bounds
-    const minLat = Math.max(Math.min(...lats), KATHMANDU_BOUNDS.south);
-    const maxLat = Math.min(Math.max(...lats), KATHMANDU_BOUNDS.north);
-    const minLng = Math.max(Math.min(...lngs), KATHMANDU_BOUNDS.west);
-    const maxLng = Math.min(Math.max(...lngs), KATHMANDU_BOUNDS.east);
-    
-    const padding = 0.01;
-    return [
-      Math.max(minLng - padding, KATHMANDU_BOUNDS.west),
-      Math.max(minLat - padding, KATHMANDU_BOUNDS.south),
-      Math.min(maxLng + padding, KATHMANDU_BOUNDS.east),
-      Math.min(maxLat + padding, KATHMANDU_BOUNDS.north)
-    ].join(',');
-  };
-
-  useEffect(() => {
-    const requestLocationPermission = async () => {
-      if (navigator.geolocation) {
-        // First get current position quickly
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            if (isInKathmandu(latitude, longitude)) {
-              setUserLocation({ name: "You", lat: latitude, lng: longitude });
-              setPermissionGranted(true);
-              setZoomLevel(16); // Zoom in more when we have user location
+  const generateMapHTML = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+        <style>
+          body, html, #map {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+          }
+          .notification {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 4px;
+            z-index: 999;
+            font-size: 14px;
+            max-width: 80%;
+            margin: 0 auto;
+            text-align: center;
+          }
+          .custom-popup .leaflet-popup-content-wrapper {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 12px;
+            border-radius: 5px;
+          }
+          .leaflet-routing-container {
+            display: none;
+          }
+          .from-marker {
+            background-color: #DB2955;
+            border-radius: 50%;
+            border: 2px solid white;
+          }
+          .to-marker {
+            background-color: #082A3F;
+            border-radius: 50%;
+            border: 2px solid white;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <div id="notification" class="notification" style="display: none;"></div>
+        
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+        <script>
+          const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+          }).setView([27.7172, 85.3240], 13);
+          
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: ''
+          }).addTo(map);
+          
+          const fromIcon = L.divIcon({
+            className: 'from-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          
+          const toIcon = L.divIcon({
+            className: 'to-marker',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          
+          let fromMarker = null;
+          let toMarker = null;
+          let routeControl = null;
+          
+          function addFromMarker(lat, lon, name) {
+            if (fromMarker) {
+              map.removeLayer(fromMarker);
+            }
+            
+            fromMarker = L.marker([lat, lon], {icon: fromIcon})
+              .addTo(map)
+              .bindPopup("<b>From:</b> " + name);
+            fromMarker.openPopup();
+            map.setView([lat, lon], 15);
+            showNotification("From location set");
+            return fromMarker;
+          }
+          
+          function addToMarker(lat, lon, name) {
+            if (toMarker) {
+              map.removeLayer(toMarker);
+            }
+            
+            toMarker = L.marker([lat, lon], {icon: toIcon})
+              .addTo(map)
+              .bindPopup("<b>To:</b> " + name);
+            toMarker.openPopup();
+            map.setView([lat, lon], 15);
+            showNotification("To location set");
+            return toMarker;
+          }
+          
+          function showRoute(fromLat, fromLon, toLat, toLon) {
+            if (routeControl) {
+              map.removeControl(routeControl);
+            }
+            
+            routeControl = L.Routing.control({
+              waypoints: [
+                L.latLng(fromLat, fromLon),
+                L.latLng(toLat, toLon)
+              ],
+              routeWhileDragging: false,
+              showAlternatives: false,
+              fitSelectedRoutes: true,
+              show: false,
+              lineOptions: {
+                styles: [
+                  {color: '#6FB1FC', opacity: 0.8, weight: 6},
+                  {color: '#0D6EFD', opacity: 0.9, weight: 4}
+                ]
+              },
+              createMarker: function() {
+                return null;
+              }
+            }).addTo(map);
+            
+            if (fromMarker && toMarker) {
+              const bounds = L.latLngBounds(
+                [fromMarker.getLatLng(), toMarker.getLatLng()]
+              );
+              map.fitBounds(bounds, {padding: [50, 50]});
+            }
+            
+            showNotification("Route calculated");
+            return routeControl;
+          }
+          
+          function showNotification(message, duration = 3000) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+              notification.style.display = 'none';
+            }, duration);
+          }
+          
+          function handleMessage(event) {
+            try {
+              let data;
+              
+              if (typeof event.data === 'string') {
+                try {
+                  data = JSON.parse(event.data);
+                } catch (e) {
+                  console.error('Error parsing message:', e);
+                  return;
+                }
+              } else {
+                data = event.data;
+              }
+              
+              console.log('Received message:', data);
+              
+              switch(data.type) {
+                case 'ADD_FROM_MARKER':
+                  addFromMarker(data.lat, data.lon, data.name);
+                  break;
+                  
+                case 'ADD_TO_MARKER':
+                  addToMarker(data.lat, data.lon, data.name);
+                  break;
+                  
+                case 'SHOW_ROUTE':
+                  const from = data.from;
+                  const to = data.to;
+                  
+                  if (!fromMarker) {
+                    addFromMarker(from.lat, from.lon, from.name);
+                  }
+                  
+                  if (!toMarker) {
+                    addToMarker(to.lat, to.lon, to.name);
+                  }
+                  
+                  showRoute(from.lat, from.lon, to.lat, to.lon);
+                  break;
+                  
+                default:
+                  console.log('Unknown message type:', data.type);
+              }
+            } catch (e) {
+              console.error('Error handling message:', e);
+            }
+          }
+          
+          if (window.ReactNativeWebView) {
+            window.addEventListener('message', function(event) {
+              handleMessage(event);
+            });
+          } else {
+            window.addEventListener('message', function(event) {
+              handleMessage(event);
+            });
+          }
+          
+          window.onload = function() {
+            console.log('Map loaded and ready');
+            showNotification("Map ready", 2000);
+            
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({type: 'MAP_READY'}));
             } else {
-              setUserLocation(defaultLocation);
-              setPermissionGranted(true);
-              Alert.alert("Notice", "You are outside Kathmandu. Map is centered on Kathmandu.");
+              window.parent.postMessage({type: 'MAP_READY'}, '*');
             }
-          },
-          (error) => {
-            console.error("Error getting initial location:", error);
-            setUserLocation(defaultLocation);
-            setPermissionGranted(true);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
+          };
+        </script>
+      </body>
+      </html>
+    `;
+  };
 
-        // Then watch for continuous updates
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            if (isInKathmandu(latitude, longitude)) {
-              setUserLocation({ name: "You", lat: latitude, lng: longitude });
-            }
-            // Else don't update location if outside Kathmandu
-          },
-          (error) => {
-            console.error("Error watching location:", error);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000
-          }
-        );
-      } else {
-        console.error("Geolocation is not supported by this browser.");
-        setUserLocation(defaultLocation);
-        setPermissionGranted(true);
+  const handleWebViewMessage = (event: WebViewMessageEvent) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      
+      switch(data.type) {
+        case 'MAP_READY':
+          setIsMapReady(true);
+          break;
+          
+        default:
+          console.log('Other message from WebView:', data);
       }
-    };
-
-    requestLocationPermission();
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
+    } catch (e) {
+      console.error('Error parsing WebView message:', e);
+    }
+  };
+  
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleIframeMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'MAP_READY') {
+          setIsMapReady(true);
+        }
+      };
+      
+      window.addEventListener('message', handleIframeMessage);
+      
+      return () => {
+        window.removeEventListener('message', handleIframeMessage);
+      };
+    }
   }, []);
 
   const renderHamburgerButton = () => (
@@ -439,6 +586,130 @@ const ContactMap = () => {
       <View style={styles.outsideBar} />
       <View style={styles.outsideBar} />
     </TouchableOpacity>
+  );
+
+  const renderSearchToggleButton = () => (
+    <TouchableOpacity onPress={toggleSearch} style={styles.searchToggleButton}>
+      <Icon name="search" size={24} color="black" />
+    </TouchableOpacity>
+  );
+
+  const renderSuggestionsList = (suggestions: LocationSuggestion[], isLoading: boolean) => (
+    <View style={styles.suggestionsContainer}>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#DB2955" />
+        </View>
+      ) : (
+        <FlatList
+          data={suggestions}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.suggestionItem}
+              onPress={() => handleSelectSuggestion(item)}
+            >
+              <Icon name="location" size={16} color="#DB2955" style={styles.suggestionIcon} />
+              <Text style={styles.suggestionText} numberOfLines={2}>{item.name}</Text>
+            </TouchableOpacity>
+          )}
+          style={suggestions.length > 0 ? styles.suggestionsList : { height: 0 }}
+        />
+      )}
+    </View>
+  );
+
+  const renderSearchPanel = () => (
+    <View style={styles.searchOverlay}>
+      <View style={styles.searchHeader}>
+        <Text style={styles.searchTitle}>Search Routes</Text>
+        <TouchableOpacity onPress={toggleSearch}>
+          <Icon name="close" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.inputContainer}>
+        <Icon name="location" size={20} color="#DB2955" style={styles.inputIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="From"
+          value={fromLocation}
+          onChangeText={handleFromLocationChange}
+          placeholderTextColor="#999"
+          onFocus={() => setActiveField('from')}
+        />
+        {fromLocation.length > 0 && (
+          <TouchableOpacity onPress={() => {
+            setFromLocation('');
+            setFromSuggestions([]);
+            if (selectedFromLocation) {
+              setSelectedFromLocation(null);
+              sendMessageToMap({
+                type: 'REMOVE_FROM_MARKER'
+              });
+            }
+          }}>
+            <Icon name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+      </View>
+      
+      {activeField === 'from' && renderSuggestionsList(fromSuggestions, isLoadingFrom)}
+      
+      <View style={styles.dividerLine} />
+      
+      <View style={styles.inputContainer}>
+        <Icon name="navigate" size={20} color="#082A3F" style={styles.inputIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="To"
+          value={toLocation}
+          onChangeText={handleToLocationChange}
+          placeholderTextColor="#999"
+          onFocus={() => setActiveField('to')}
+        />
+        {toLocation.length > 0 && (
+          <TouchableOpacity onPress={() => {
+            setToLocation('');
+            setToSuggestions([]);
+            if (selectedToLocation) {
+              setSelectedToLocation(null);
+              sendMessageToMap({
+                type: 'REMOVE_TO_MARKER'
+              });
+            }
+          }}>
+            <Icon name="close-circle" size={20} color="#999" />
+          </TouchableOpacity>
+        )}
+      </View>
+      
+      {activeField === 'to' && renderSuggestionsList(toSuggestions, isLoadingTo)}
+      
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity 
+          onPress={handleFindRoute} 
+          style={[
+            styles.showRouteButton,
+            (!selectedFromLocation || !selectedToLocation) && styles.disabledButton
+          ]}
+          disabled={!selectedFromLocation || !selectedToLocation}
+        >
+          <Text style={styles.showRouteButtonText}>Find Route</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={handleSearch} 
+          style={[
+            styles.searchButton,
+            (!selectedFromLocation || !selectedToLocation) && styles.disabledButton
+          ]}
+          disabled={!selectedFromLocation || !selectedToLocation}
+        >
+          <Text style={styles.searchButtonText}>Search</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 
   const renderMenu = () => (
@@ -487,14 +758,35 @@ const ContactMap = () => {
     </View>
   );
 
-  if (showTicket && selectedBus) {
+  const renderMap = () => {
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.map}>
+          <iframe
+            src={`data:text/html;charset=utf-8,${encodeURIComponent(generateMapHTML())}`}
+            style={{
+              border: 'none',
+              width: '100%',
+              height: '100%',
+            }}
+            title="Map"
+          />
+        </View>
+      );
+    }
+    
     return (
-      <Ticket
-        bus={selectedBus}
-        onBack={() => setShowTicket(false)}
+      <WebView
+        ref={webViewRef}
+        style={styles.map}
+        originWhitelist={['*']}
+        source={{ html: generateMapHTML() }}
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
       />
     );
-  }
+  };
 
   if (currentPage === "Profile") {
     return (
@@ -537,125 +829,20 @@ const ContactMap = () => {
 
   return (
     <View style={styles.container}>
+      {renderMap()}
       {renderHamburgerButton()}
-
-      {!permissionGranted ? (
-        <Text style={styles.permissionText}>
-          Location permission is required to use the map. Please enable it in
-          your browser settings.
-        </Text>
-      ) : (
-        <iframe
-          src={showRoute ? getOSMUrlWithRoute() : getDefaultMapUrl()}
-          style={{
-            ...styles.map,
-            pointerEvents: isSearchVisible || isOverlayVisible ? "none" : "auto",
-          }}
-          title="OpenStreetMap"
-          allow="geolocation"
-        />
-      )}
-
-      {permissionGranted && (
-        <TouchableOpacity
-          onPress={handleSearchIconClick}
-          style={styles.searchIconContainer}
-        >
-          <Icon name="search" size={30} color="blue" />
-        </TouchableOpacity>
-      )}
-
-      {isSearchVisible && (
-        <View style={styles.searchOverlay}>
-          <TouchableOpacity onPress={closeSearchOverlay} style={styles.closeButton}>
-            <Icon name="close" size={24} color="black" style={styles.closeIcon} />
-          </TouchableOpacity>
-
-          <View style={styles.inputContainer}>
-            <Icon name="location" size={20} color="blue" style={styles.inputIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="From..."
-              placeholderTextColor="rgba(0, 0, 0, 0.5)"
-              value={searchQuery.from}
-              onChangeText={handleFromInputChange}
-            />
-          </View>
-
-          {fromSuggestions.length > 0 && (
-            <FlatList
-              data={fromSuggestions}
-              keyExtractor={(item) => item.name}
-              renderItem={({ item }: { item: Suggestion }) => (
-                <TouchableOpacity
-                  style={styles.suggestionItem}
-                  onPress={() => handleSuggestionPress("from", item)}
-                >
-                  <Text style={styles.suggestionText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-              style={styles.suggestionsList}
-            />
-          )}
-
-          <View style={styles.dividerLine} />
-
-          <View style={styles.inputContainer}>
-            <Icon name="location" size={20} color="red" style={styles.inputIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="To..."
-              placeholderTextColor="rgba(0, 0, 0, 0.5)"
-              value={searchQuery.to}
-              onChangeText={handleToInputChange}
-            />
-          </View>
-
-          {toSuggestions.length > 0 && (
-            <FlatList
-              data={toSuggestions}
-              keyExtractor={(item) => item.name}
-              renderItem={({ item }: { item: Suggestion }) => (
-                <TouchableOpacity
-                  style={styles.suggestionItem}
-                  onPress={() => handleSuggestionPress("to", item)}
-                >
-                  <Text style={styles.suggestionText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-              style={styles.suggestionsList}
-            />
-          )}
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity onPress={handleShowRoute} style={styles.showRouteButton}>
-              <Text style={styles.showRouteButtonText}>Show Route</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSearch} style={styles.searchButton}>
-              <Text style={styles.searchButtonText}>Search</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
+      {renderSearchToggleButton()}
+      {searchVisible && renderSearchPanel()}
+      {menuVisible && renderMenu()}
+      
       {isOverlayVisible && (
         <Overlay
-          searchQuery={searchQuery}
+          searchQuery={{ from: fromLocation, to: toLocation }}
           distance={routeDistance}
           duration={routeDuration}
-          onClose={() => {
-            setIsOverlayVisible(false);
-            setSearchQuery({ from: "", to: "" });
-            setFromSuggestions([]);
-            setToSuggestions([]);
-            setShowRoute(false);
-            setRouteCoordinates([]);
-            setZoomLevel(16); // Zoom back in when closing overlay
-          }}
+          onClose={() => setIsOverlayVisible(false)}
         />
       )}
-
-      {menuVisible && renderMenu()}
     </View>
   );
 };
@@ -668,15 +855,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   map: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 0,
-  },
-  permissionText: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
-    color: 'red',
+    ...StyleSheet.absoluteFillObject,
   },
   hamburgerButton: {
     position: 'absolute',
@@ -693,6 +872,117 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     marginVertical: 3,
     borderRadius: 2,
+  },
+  searchToggleButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 3,
+    padding: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 5,
+  },
+  searchOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
+    backgroundColor: '#082A3F',
+    padding: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    elevation: 5,
+  },
+  searchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  searchTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    borderBottomWidth: 0,
+    paddingVertical: 12,
+    color: 'black',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: '#ccc',
+    marginVertical: 5,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  showRouteButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#4CAF50',
+    borderRadius: 10,
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  showRouteButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  searchButton: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#DB2955',
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  searchButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  suggestionsContainer: {
+    marginBottom: 10,
+  },
+  suggestionsList: {
+    maxHeight: 150,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  suggestionIcon: {
+    marginRight: 10,
+  },
+  suggestionText: {
+    flex: 1,
+    color: '#333',
+  },
+  loadingContainer: {
+    padding: 10,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    alignItems: 'center',
   },
   menuContainer: {
     position: 'absolute',
@@ -790,103 +1080,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  searchIconContainer: {
-    position: 'absolute',
-    top: 70,
-    left: 20,
-    zIndex: 4,
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 5,
-  },
-  searchOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 5,
-    backgroundColor: '#082A3F',
-    padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    elevation: 5,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    borderBottomWidth: 0,
-    paddingVertical: 12,
-    color: 'black',
-  },
-  dividerLine: {
-    height: 1,
+  disabledButton: {
     backgroundColor: '#ccc',
-    marginVertical: 5,
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  showRouteButton: {
-    flex: 1,
-    padding: 15,
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  showRouteButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  searchButton: {
-    flex: 1,
-    padding: 15,
-    backgroundColor: '#DB2955',
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  searchButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 15,
-    padding: 5,
-    zIndex: 6,
-  },
-  closeIcon: {
-    color: 'black',
-  },
-  suggestionsList: {
-    maxHeight: 150,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    marginTop: 5,
-  },
-  suggestionItem: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: 'black',
   },
 });
 
