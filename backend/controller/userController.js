@@ -114,93 +114,86 @@ const logout = (req, res) => {
 
 const getUserProfile = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = req.headers.authorization
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         status: "error",
         message: "Access token required",
-      });
+      })
     }
 
-    const accessToken = authHeader.split(" ")[1];
+    const accessToken = authHeader.split(" ")[1]
     if (!accessToken) {
       return res.status(401).json({
         status: "error",
         message: "Access token is missing",
-      });
+      })
     }
 
     try {
-      const decoded = jwt.verify(accessToken, config.jwtSecret);
+      const decoded = jwt.verify(accessToken, config.jwtSecret)
       const user = await prisma.user.findUnique({
         where: { id: decoded.id },
         select: {
           id: true,
           email: true,
           role: true,
-          firstName:true,
-          lastName:true,
-          age:true,
-          profilePic: true,
+          firstName: true,
+          lastName: true,
+          age: true,
         },
-      });
+      })
 
       if (!user) {
         return res.status(404).json({
           status: "error",
           message: "User not found",
-        });
+        })
       }
 
       return res.status(200).json({
         data: user,
-      });
+      })
     } catch (err) {
       if (err.name === "TokenExpiredError") {
         return res.status(401).json({
           status: "error",
           code: "TOKEN_EXPIRED",
           message: "Access token has expired. Please refresh token.",
-        });
+        })
       }
-      throw err;
+      throw err
     }
   } catch (error) {
-    console.error("Error in getUserProfile:", error);
+    console.error("Error in getUserProfile:", error)
     return res.status(500).json({
       status: "error",
       message: "Internal server error",
       error: error.message,
-    });
+    })
   }
 };
 
 const updateUserProfile = async (req, res) => {
-  const validationResult = userUpdateSchema.safeParse(req.body);
+  const validationResult = userUpdateSchema.safeParse(req.body)
   if (!validationResult.success) {
-    return res.status(400).json({ errors: validationResult.error.errors });
+    return res.status(400).json({ errors: validationResult.error.errors })
   }
 
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         status: "error",
         message: "Access token required",
-      });
+      })
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, config.jwtSecret);
+    const token = authHeader.split(" ")[1]
+    const decoded = jwt.verify(token, config.jwtSecret)
 
-const {profilePic,document,email,firstName,lastName } = validationResult.data
-
-    if (req.file) {
-      // Create full URL for the profile picture
-      const baseUrl = `${req.protocol}://${req.get("host")}`;
-      profilePic = `${baseUrl}/uploads/${req.file.filename}`;
-    }
+    const { document, email, firstName, lastName } = validationResult.data
 
     const updatedUser = await prisma.user.update({
       where: { id: decoded.id },
@@ -209,32 +202,28 @@ const {profilePic,document,email,firstName,lastName } = validationResult.data
         lastName,
         document,
         email,
-        ...(profilePic && { profilePic }), // Store full URL in database
       },
       select: {
         id: true,
         email: true,
         firstName: true,
-        lastName:true,
-        profilePic: true,
+        lastName: true,
         role: true,
       },
-    });
+    })
 
     res.status(200).json({
       status: "success",
       message: "Profile updated successfully",
       user: updatedUser,
-    });
+    })
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ message: "Invalid token" });
+      return res.status(401).json({ message: "Invalid token" })
     }
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    res.status(500).json({ message: "Internal server error", error: error.message })
   }
-};
+}
 
 const resend = new Resend(process.env.RESEND_TOKEN_SECRET);
 
