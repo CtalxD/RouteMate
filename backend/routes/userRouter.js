@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const {upload} = require("../middleware/upload");
 const { authenticateToken } = require("../middleware/authMiddleware");
 
 const {
@@ -14,7 +13,7 @@ const {
   getAllUsers,
   refreshToken
 } = require("../controller/userController");
-const { validateRequest } = require("../middleware/validateRequest");
+const {} = require("../middleware/validateRequest");
 
 // Public routes (no authentication required)
 router.post("/register", registerUser);
@@ -25,7 +24,7 @@ router.post("/refresh-token", refreshToken);
 
 //protected routes
 router.get("/profile", authenticateToken, getUserProfile);
-router.put("/profile", authenticateToken, upload.single("profilePic"), updateUserProfile);
+router.put("/profile", authenticateToken, updateUserProfile);
 router.post("/logout", authenticateToken, logout);
 router.get("/getAllUsers", getAllUsers);
 

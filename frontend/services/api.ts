@@ -30,7 +30,7 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = await asyncStore.getItem(REFRESH_TOKEN_KEY);
-        if (!refreshToken) throw new Error('No refresh token available');
+        if (!refreshToken) throw new Error('Invalid Email or Password');
 
         const response = await axios.post(`${API_URL}/auth/refresh`, {
           refreshToken

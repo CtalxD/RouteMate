@@ -3,7 +3,6 @@ import { View, StyleSheet, Text, TouchableOpacity, Alert } from "react-native"
 import { useAuth } from "@/context/auth-context"
 import { useRouter } from "expo-router"
 import Profile from "./Profile"
-import { useGetProfile } from "@/services/profile.service"
 import Settings from "./Settings"
 import Icon from "react-native-vector-icons/Ionicons"
 import HamburgerMenu from "./HamburgerMenu"
@@ -29,6 +28,7 @@ const API_URL = "http://localhost:5000"
 const DriverUI = () => {
   const [zoomLevel] = useState(0.01)
   const [userLocation, setUserLocation] = useState<Location | null>(null)
+  const [locationAccuracy, setLocationAccuracy] = useState<number>(0)
   const [permissionGranted, setPermissionGranted] = useState(false)
   const [isOnline, setIsOnline] = useState(false)
   const router = useRouter()
@@ -43,8 +43,7 @@ const DriverUI = () => {
     lat: 27.7172,
     lng: 85.324,
   }
-
-  const { data: profileData } = useGetProfile()
+  
   const [menuVisible, setMenuVisible] = useState(false)
   const [currentPage, setCurrentPage] = useState("Home")
   const [previousPage, setPreviousPage] = useState("Home")
@@ -52,10 +51,13 @@ const DriverUI = () => {
 
   // Initialize Socket.io connection
   useEffect(() => {
-    socketRef.current = io(API_URL, {
-      withCredentials: true,
-      transports: ["websocket"],
-    })
+    // Create socket connection if it doesn't exist
+    if (!socketRef.current) {
+      socketRef.current = io(API_URL, {
+        withCredentials: true,
+        transports: ["websocket"],
+      })
+    }
 
     const socket = socketRef.current
 
@@ -95,6 +97,7 @@ const DriverUI = () => {
       if (socket) {
         console.log("Disconnecting socket")
         socket.disconnect()
+        socketRef.current = null
       }
     }
   }, [user])
@@ -107,12 +110,16 @@ const DriverUI = () => {
           const permission = await navigator.permissions.query({ name: 'geolocation' })
           if (permission.state === 'granted') {
             setPermissionGranted(true)
-            startLocationTracking()
+            if (isOnline) {
+              startLocationTracking()
+            }
           } else if (permission.state === 'prompt') {
             navigator.geolocation.getCurrentPosition(
               () => {
                 setPermissionGranted(true)
-                startLocationTracking()
+                if (isOnline) {
+                  startLocationTracking()
+                }
               },
               handleLocationError,
               { enableHighAccuracy: true }
@@ -122,7 +129,9 @@ const DriverUI = () => {
           permission.onchange = () => {
             if (permission.state === 'granted') {
               setPermissionGranted(true)
-              startLocationTracking()
+              if (isOnline) {
+                startLocationTracking()
+              }
             } else {
               setPermissionGranted(false)
               stopLocationTracking()
@@ -133,7 +142,9 @@ const DriverUI = () => {
           navigator.geolocation.getCurrentPosition(
             () => {
               setPermissionGranted(true)
-              startLocationTracking()
+              if (isOnline) {
+                startLocationTracking()
+              }
             },
             handleLocationError,
             { enableHighAccuracy: true }
@@ -145,7 +156,9 @@ const DriverUI = () => {
         navigator.geolocation.getCurrentPosition(
           () => {
             setPermissionGranted(true)
-            startLocationTracking()
+            if (isOnline) {
+              startLocationTracking()
+            }
           },
           handleLocationError,
           { enableHighAccuracy: true }
@@ -163,7 +176,8 @@ const DriverUI = () => {
           Alert.alert("Position Unavailable", "Location information is unavailable.")
           break
         case error.TIMEOUT:
-          Alert.alert("Timeout", "The request to get user location timed out.")
+          // Don't show alert for timeout errors, just log them
+          console.log("Location request timed out, will retry...")
           break
         default:
           Alert.alert("Error", "An unknown error occurred while getting your location.")
@@ -181,19 +195,19 @@ const DriverUI = () => {
     return () => {
       stopLocationTracking()
     }
-  }, [])
+  }, [isOnline])
 
-  // Start location tracking with 5-second updates
+  // Start location tracking with more frequent updates and high accuracy
   const startLocationTracking = () => {
-    if (!permissionGranted) return
+    if (!permissionGranted || !isOnline) return
 
     // Clear any existing watch
     stopLocationTracking()
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000, // Increased timeout for better reliability
-      maximumAge: 0, // Always get fresh position
+      timeout: 10000, // Increased timeout to 10 seconds
+      maximumAge: 0,
     }
 
     // Get initial position immediately
@@ -203,45 +217,57 @@ const DriverUI = () => {
       },
       (error) => {
         console.error("Error getting initial position:", error)
+        // If initial position fails, try again after a short delay
+        setTimeout(() => {
+          navigator.geolocation.getCurrentPosition(
+            handlePositionUpdate,
+            (err) => console.error("Retry failed:", err),
+            options
+          )
+        }, 1000)
       },
       options
     )
 
-    // Set up periodic updates (every 5 seconds)
+    // Set up watchPosition with more relaxed parameters
     locationWatchIdRef.current = navigator.geolocation.watchPosition(
       handlePositionUpdate,
       (error) => {
         console.error("Error watching location:", error)
+        // If watch fails, try to restart it
+        if (error.code === error.TIMEOUT) {
+          setTimeout(() => {
+            if (isOnline && permissionGranted) {
+              startLocationTracking()
+            }
+          }, 2000)
+        }
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000, // Accept positions up to 5 seconds old
+        timeout: 15000, // Longer timeout for watchPosition
+        maximumAge: 5000, // Allow slightly older positions
       }
     )
 
-    // Also set up a backup interval in case watchPosition fails
-    const backupInterval = setInterval(() => {
-      navigator.geolocation.getCurrentPosition(
-        handlePositionUpdate,
-        (error) => {
-          console.error("Backup location error:", error)
-        },
-        options
-      )
-    }, 5000) // 5 seconds
-
-    return () => {
-      clearInterval(backupInterval)
-    }
+    console.log("Started location tracking with ID:", locationWatchIdRef.current)
   }
 
   const handlePositionUpdate = (position: GeolocationPosition) => {
+    // If we're offline, don't update anything
+    if (!isOnline) return;
+    
     const { latitude, longitude, accuracy } = position.coords
     console.log(`Position updated at ${new Date().toISOString()} with accuracy: ${accuracy} meters`)
 
-    const location = { name: "User", lat: latitude, lng: longitude }
+    // Store location with full precision
+    const location = { 
+      name: "User", 
+      lat: latitude, 
+      lng: longitude 
+    }
     setUserLocation(location)
+    setLocationAccuracy(accuracy)
 
     if (socketRef.current && isOnline) {
       socketRef.current.emit("update-location", {
@@ -254,27 +280,55 @@ const DriverUI = () => {
         timestamp: Date.now()
       })
     }
+    
+    // If we have a map reference, update the map directly using postMessage to the iframe
+    if (mapRef.current?.contentWindow) {
+      try {
+        mapRef.current.contentWindow.postMessage({
+          action: 'updateLocation',
+          latitude,
+          longitude,
+          accuracy
+        }, '*');
+      } catch (err) {
+        console.error("Failed to send location to map iframe:", err);
+      }
+    }
   }
 
   const stopLocationTracking = () => {
     if (locationWatchIdRef.current !== null) {
       navigator.geolocation.clearWatch(locationWatchIdRef.current)
       locationWatchIdRef.current = null
+      console.log("Stopped location tracking")
     }
   }
 
-  // Handle online status changes
+  // Setup message listener for iframe communication
   useEffect(() => {
-    if (isOnline && permissionGranted) {
-      startLocationTracking()
-    } else {
-      stopLocationTracking()
-    }
-
+    const handleIframeMessage = (event: MessageEvent) => {
+      // Only handle messages from our map iframe
+      if (event.source === mapRef.current?.contentWindow) {
+        if (event.data.type === 'mapReady') {
+          // Map is ready to receive location data
+          if (userLocation && isOnline) {
+            mapRef.current?.contentWindow?.postMessage({
+              action: 'updateLocation',
+              latitude: userLocation.lat,
+              longitude: userLocation.lng,
+              accuracy: locationAccuracy
+            }, '*');
+          }
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleIframeMessage);
+    
     return () => {
-      stopLocationTracking()
-    }
-  }, [isOnline, permissionGranted])
+      window.removeEventListener('message', handleIframeMessage);
+    };
+  }, [userLocation, locationAccuracy, isOnline]);
 
   const handleToggleOnline = (status: boolean) => {
     if (!socketRef.current) {
@@ -285,35 +339,42 @@ const DriverUI = () => {
     setIsOnline(status)
     console.log(`User is now ${status ? "online" : "offline"}`)
 
+    // Always notify the server of status change regardless of location
+    socketRef.current.emit("toggle-online-status", {
+      status,
+      isDriver: true,
+      userId: user?.id
+    })
+
+    // If going online, check for location permissions and start tracking
     if (status && permissionGranted) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords
-          socketRef.current?.emit("toggle-online-status", {
-            status,
-            isDriver: true,
+          // Update server with initial location
+          socketRef.current?.emit("update-location", {
             latitude,
             longitude,
             accuracy,
-            userId: user?.id
+            isOnline: true,
+            isDriver: true,
+            userId: user?.id,
+            timestamp: Date.now()
           })
+          
+          // Start continuous tracking
+          startLocationTracking()
         },
         (error) => {
           console.error("Error getting location for status update:", error)
-          socketRef.current?.emit("toggle-online-status", {
-            status,
-            isDriver: true,
-            userId: user?.id
-          })
+          // Even if initial location fails, start tracking anyway
+          startLocationTracking()
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000 }
       )
     } else {
-      socketRef.current.emit("toggle-online-status", {
-        status,
-        isDriver: true,
-        userId: user?.id
-      })
+      // If going offline, stop tracking
+      stopLocationTracking()
     }
   }
 
@@ -325,6 +386,13 @@ const DriverUI = () => {
     if (isOnline) {
       handleToggleOnline(false)
     }
+    
+    // Ensure socket is disconnected
+    if (socketRef.current) {
+      socketRef.current.disconnect()
+      socketRef.current = null
+    }
+    
     setMenuVisible(false)
     onLogout()
   }
@@ -367,17 +435,200 @@ const DriverUI = () => {
       baseLocation.lat + zoomLevel
     }&layer=mapnik&lang=en&doubleClickZoom=false`
 
-    if (userLocation && isOnline) {
-      mapUrl += `&marker=${userLocation.lat},${userLocation.lng}`
-    }
-
+    // We'll handle marker and accuracy circle via custom script
     return mapUrl
   }
 
   const openStreetMapUrl = createMapUrl()
 
+  // Create custom map HTML with smaller radius and higher precision
+  const createCustomMapHtml = () => {
+    const baseLocation = userLocation || defaultLocation;
+    const accuracy = locationAccuracy || 50; // Default accuracy if none provided
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Driver Location Map</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+        <style>
+          body, html, #map {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+          }
+          .accuracy-circle {
+            stroke: #4285F4;
+            stroke-opacity: 0.6;
+            fill: #4285F4;
+            fill-opacity: 0.15;
+          }
+          .location-dot {
+            background-color: #4285F4;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 3px rgba(0,0,0,0.3);
+          }
+          .pulse {
+            animation: pulse 1.5s infinite;
+          }
+          @keyframes pulse {
+            0% {
+              box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.7);
+            }
+            70% {
+              box-shadow: 0 0 0 10px rgba(66, 133, 244, 0);
+            }
+            100% {
+              box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+            }
+          }
+          .offline-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <div id="offline-message" class="offline-message">You are currently offline</div>
+        <script>
+          // Initialize map
+          const map = L.map('map').setView([${baseLocation.lat}, ${baseLocation.lng}], 18); // Higher initial zoom
+          
+          // Add tile layer (OpenStreetMap)
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(map);
+          
+          let accuracyCircle = null;
+          let locationMarker = null;
+          let isDriverOnline = ${isOnline};
+          
+          // Custom marker icon resembling Google Maps
+          const locationIcon = L.divIcon({
+            className: 'location-dot pulse',
+            iconSize: [14, 14], // Slightly smaller dot
+            iconAnchor: [7, 7]
+          });
+          
+          // Initialize location with improved precision and smaller radius
+          function initializeLocation(lat, lng, accuracy) {
+            // Remove existing marker and circle if they exist
+            if (accuracyCircle) {
+              map.removeLayer(accuracyCircle);
+            }
+            if (locationMarker) {
+              map.removeLayer(locationMarker);
+            }
+            
+            // Calculate scaled down radius for better visualization
+            // Make the radius smaller - this is the key change you requested
+            const scaledRadius = Math.min(accuracy * 0.7, accuracy - 2);
+            
+            // Add accuracy circle with smaller radius
+            accuracyCircle = L.circle([lat, lng], {
+              radius: scaledRadius, // Smaller radius for better visualization
+              className: 'accuracy-circle'
+            }).addTo(map);
+            
+            // Add marker at center
+            locationMarker = L.marker([lat, lng], {
+              icon: locationIcon
+            }).addTo(map);
+            
+            // Center map on location with higher zoom level
+            map.setView([lat, lng], getZoomForAccuracy(accuracy));
+          }
+          
+          // Calculate appropriate zoom level based on accuracy - increased precision
+          function getZoomForAccuracy(accuracy) {
+            if (accuracy <= 5) return 20; // Extremely accurate
+            if (accuracy <= 10) return 19; // Very accurate
+            if (accuracy <= 30) return 18;
+            if (accuracy <= 70) return 17;
+            if (accuracy <= 150) return 16;
+            if (accuracy <= 500) return 15;
+            return 14; // Less accurate, zoom out more
+          }
+          
+          // Setup message listener
+          window.addEventListener('message', function(event) {
+            if (event.data.action === 'updateLocation') {
+              const { latitude, longitude, accuracy } = event.data;
+              
+              // Use the full precision of the coordinates (no rounding)
+              initializeLocation(latitude, longitude, accuracy);
+              document.getElementById('offline-message').style.display = 'none';
+            } else if (event.data.action === 'setOffline') {
+              // Display offline message and disable marker
+              document.getElementById('offline-message').style.display = 'block';
+              if (accuracyCircle) {
+                map.removeLayer(accuracyCircle);
+                accuracyCircle = null;
+              }
+              if (locationMarker) {
+                map.removeLayer(locationMarker);
+                locationMarker = null;
+              }
+            }
+          });
+          
+          // Initialize with default location
+          initializeLocation(${baseLocation.lat}, ${baseLocation.lng}, ${accuracy});
+          
+          // Show/hide offline message based on initial status
+          if (!${isOnline}) {
+            document.getElementById('offline-message').style.display = 'block';
+          }
+          
+          // Let parent know we're ready
+          if (window.parent) {
+            window.parent.postMessage({ type: 'mapReady' }, '*');
+          }
+        </script>
+      </body>
+      </html>
+    `;
+  };
+
+  // Effect to update map when online status changes
+  useEffect(() => {
+    if (mapRef.current?.contentWindow) {
+      if (!isOnline) {
+        // If offline, tell the map to hide the marker
+        mapRef.current.contentWindow.postMessage({
+          action: 'setOffline'
+        }, '*');
+      } else if (userLocation && isOnline) {
+        // If online and we have location, update the marker
+        mapRef.current.contentWindow.postMessage({
+          action: 'updateLocation',
+          latitude: userLocation.lat,
+          longitude: userLocation.lng,
+          accuracy: locationAccuracy
+        }, '*');
+      }
+    }
+  }, [isOnline]);
+
   const renderHamburgerButton = () => {
-    if (currentPage !== "Home") return null
+    if (currentPage !== "Home") return null;
 
     return (
       <View style={styles.leftControlsContainer}>
@@ -395,9 +646,17 @@ const DriverUI = () => {
         >
           <Text style={styles.onlineToggleText}>{isOnline ? "Online" : "Offline"}</Text>
         </TouchableOpacity>
+        
+        {userLocation && isOnline && (
+          <View style={styles.accuracyContainer}>
+            <Text style={styles.accuracyText}>
+              Accuracy: {locationAccuracy ? `${Math.round(locationAccuracy)}m` : 'Unknown'}
+            </Text>
+          </View>
+        )}
       </View>
-    )
-  }
+    );
+  };
 
   if (currentPage === "Profile") {
     return (
@@ -433,12 +692,14 @@ const DriverUI = () => {
           Location permission is required to use the map. Please enable it in your browser settings.
         </Text>
       ) : (
+        // Use a custom iframe with HTML that includes both map and location dot with accuracy circle
         <iframe 
           ref={mapRef} 
-          src={openStreetMapUrl} 
+          srcDoc={createCustomMapHtml()}
           style={styles.map} 
           title="OpenStreetMap" 
           allow="geolocation *" 
+          frameBorder="0"
         />
       )}
 
@@ -503,11 +764,21 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     minWidth: 100,
     alignItems: "center",
+    marginBottom: 10,
   },
   onlineToggleText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  accuracyContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    borderRadius: 5,
+    padding: 8,
+  },
+  accuracyText: {
+    fontSize: 14,
+    fontWeight: "500",
   },
   backButton: {
     position: "absolute",
@@ -542,6 +813,29 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     marginTop: 60,
+  },
+  permissionErrorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f8f8f8',
+  },
+  permissionErrorText: {
+    color: 'red',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryPermissionButton: {
+    backgroundColor: '#007bff',
+    padding: 10,
+    borderRadius: 5,
+  },
+  retryPermissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
   },
 })
 

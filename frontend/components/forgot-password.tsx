@@ -225,15 +225,15 @@ const styles = StyleSheet.create({
     paddingTop: 30,
   },
   subtitle: {
-    textAlign: 'center',
-    paddingRight: 38,
+    textAlign: 'left',
+    paddingRight: 3,
     marginBottom: 10,
     color: '#DB2955',
     fontSize: 16,
     fontWeight: 'bold',
   },
   code: {
-    textAlign: 'center',
+    textAlign: 'left',
     paddingRight: 55,
     marginBottom: 10,
     color: '#DB2955',
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   newPasswordSubtitle: {
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 10,
     marginRight: 98,
     paddingRight: 27,
@@ -280,8 +280,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'regular',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   backToLogin: {
     textAlign: 'center',

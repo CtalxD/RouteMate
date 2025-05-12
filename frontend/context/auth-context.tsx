@@ -5,26 +5,28 @@ import type { ErrorResponse, LoginFormData, LoginResponse } from '@/types/form';
 import { ACCESS_TOKEN_KEY, API_URL, REFRESH_TOKEN_KEY } from '@/constants';
 import axios, { type AxiosError } from 'axios';
 
-// Add User interface definition
 interface User {
   id: string;
-  // Add other user properties as needed
+  email: string;
+  role: string;
+  firstName?: string;
+  lastName?: string;
+  age?: number;
 }
 
-// Update the LoginResponse type to include user information
-// Note: This is assuming you can modify the types. If not, you'll need to handle this differently
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   authenticated: boolean;
-  user: User | null; // Add user to AuthState
+  user: User | null;
 }
 
 interface AuthProps {
   authState: AuthState;
-  user: User | null; // Add user property to AuthProps for easier access
+  user: User | null;
   onLogin: (data: LoginFormData) => Promise<LoginResponse | ErrorResponse>;
   onLogout: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthProps | undefined>(undefined);
@@ -34,17 +36,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     accessToken: null,
     refreshToken: null,
     authenticated: false,
-    user: null, // Initialize user as null
+    user: null,
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const refreshAccessToken = async () => {
     try {
+      setIsLoading(true);
       const currentRefreshToken = await asyncStore.getItem(REFRESH_TOKEN_KEY);
-      if (!currentRefreshToken) throw new Error('No refresh token');
+      if (!currentRefreshToken) throw new Error('Invalid Email or Password');
 
-      const response = await api.post<{ accessToken: string; refreshToken: string }>(`${API_URL}/refresh-token`, {
-        refreshToken: currentRefreshToken
-      });
+      const response = await api.post<{ accessToken: string; refreshToken: string }>(
+        `${API_URL}/refresh-token`,
+        { refreshToken: currentRefreshToken }
+      );
 
       const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data;
 
@@ -65,22 +70,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       await logout();
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     const loadTokens = async () => {
       try {
+        setIsLoading(true);
         const [accessToken, refreshToken, userData] = await Promise.all([
           asyncStore.getItem(ACCESS_TOKEN_KEY),
           asyncStore.getItem(REFRESH_TOKEN_KEY),
-          asyncStore.getItem('user_data'), // Assuming user data is stored with this key
+          asyncStore.getItem('user_data'),
         ]);
 
         if (accessToken && refreshToken) {
           axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
           
-          // Parse user data if available
           let user = null;
           if (userData) {
             try {
@@ -99,6 +106,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       } catch (error) {
         console.error('Error loading tokens:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadTokens();
@@ -109,25 +118,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const result = await api.post<LoginResponse>(`${API_URL}/login`, data);
       const { accessToken, refreshToken } = result.data;
 
-      // Extract user data from the response if available, or fetch it separately
       let user = null;
       if ('user' in result.data) {
-        // If the API returns user info directly
         user = (result.data as any).user;
       } else {
-        // If we need to fetch user info separately
         try {
-          // Set auth token first
           axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-          // Then fetch user profile
-          const userResponse = await api.get(`${API_URL}/me`);
-          user = userResponse.data;
         } catch (userError) {
           console.error("Error fetching user data:", userError);
         }
       }
 
-      // Store auth tokens and user data
       await Promise.all([
         asyncStore.setItem(ACCESS_TOKEN_KEY, accessToken),
         asyncStore.setItem(REFRESH_TOKEN_KEY, refreshToken),
@@ -145,15 +146,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return result.data;
     } catch (e) {
       const error = e as AxiosError<ErrorResponse>;
+      let errorMessage = error.message || 'An unknown error occurred';
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Invalid email or password";
+        } else if (error.response.data?.msg) {
+          errorMessage = error.response.data.msg;
+        } else if (error.response.status === 400) {
+          errorMessage = "Invalid request data";
+        } else if (error.response.status >= 500) {
+          errorMessage = "Server error. Please try again later";
+        }
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage = "Network error. Please check your connection";
+      }
+      
       return { 
         error: true, 
-        msg: error.message || 'An unknown error occurred' 
+        msg: errorMessage,
       };
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       await asyncStore.deleteItem();
       axios.defaults.headers.common.Authorization = '';
       setAuthState({ 
@@ -164,6 +184,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
     } catch (error) {
       console.error('Error during logout:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -173,7 +195,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         onLogin: login,
         onLogout: logout,
         authState,
-        user: authState.user, // Expose user directly from authState
+        user: authState.user,
+        isLoading,
       }}>
       {children}
     </AuthContext.Provider>

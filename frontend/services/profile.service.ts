@@ -9,7 +9,6 @@ interface ProfileData {
   age:Number,
   lastName:string,
   email: string;
-  profilePic?: string;
 }
 
 export const useGetProfile = () => {
@@ -38,7 +37,6 @@ export const useGetProfile = () => {
 export interface UpdateProfileData {
   firstName: string;
   lastName:string;
-  profilePic?: string | null;  // Make profilePic optional
 }
 
 export const useUpdateProfile = () => {
