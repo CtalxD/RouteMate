@@ -212,14 +212,6 @@ setInterval(() => {
   })
 }, 30000) // Run every 30 seconds
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, "uploads")
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
-}
-
-// Static files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")))
 
 // Routes
 app.use("/", userRoutes)
