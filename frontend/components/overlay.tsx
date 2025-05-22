@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import { useState, useEffect } from "react"
 import { View, StyleSheet, Text, TouchableOpacity, ScrollView, ActivityIndicator } from "react-native"
@@ -28,25 +30,67 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onCl
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
 
+  const getDepartureTime = (index: number): string => {
+    // Get current time
+    const now = new Date()
+
+    // If it's before 7 AM, start from 7 AM
+    let startHour = now.getHours()
+    let startMinute = now.getMinutes()
+
+    if (startHour < 7) {
+      startHour = 7
+      startMinute = 0
+    }
+
+    // Round up to the nearest 20 minutes
+    startMinute = Math.ceil(startMinute / 20) * 20
+    if (startMinute >= 60) {
+      startHour += 1
+      startMinute = 0
+    }
+
+    // Calculate departure time with 20-minute intervals
+    const minutesToAdd = index * 20
+    let departureMinutes = startMinute + minutesToAdd
+    const departureHours = startHour + Math.floor(departureMinutes / 60)
+    departureMinutes = departureMinutes % 60
+
+    // Limit to 2 hours from current time
+    const maxDepartureTime = new Date(now)
+    maxDepartureTime.setHours(maxDepartureTime.getHours() + 2)
+
+    // Format the time
+    const ampm = departureHours >= 12 ? "PM" : "AM"
+    const displayHours = departureHours > 12 ? departureHours - 12 : departureHours
+    return `${displayHours}:${departureMinutes.toString().padStart(2, "0")} ${ampm}`
+  }
+
   useEffect(() => {
     const fetchBuses = async () => {
       try {
         setLoading(true)
         setError(null)
-        
+
         // Fetch bus data from the API
         const response = await axios.get("http://localhost:5000/buses")
 
+        // Calculate how many 20-minute intervals fit in 2 hours (6 intervals)
+        const maxIntervals = 6
+
         // Transform the API data to match our BusRecommendation type
-        const busesWithRouteInfo = response.data.map((bus: any, index: number) => ({
-          id: bus.busId,
-          numberPlate: bus.busNumber,
-          from: searchQuery.from,
-          to: searchQuery.to,
-          departureTime: getDepartureTime(index),
-          estimatedTime: getEstimatedTime(index),
-          price: getPrice(index),
-        }))
+        const busesWithRouteInfo = response.data
+          .slice(0, Math.min(response.data.length, maxIntervals))
+          .map((bus: any, index: number) => ({
+            id: bus.busId,
+            numberPlate: bus.busNumber,
+            from: searchQuery.from,
+            to: searchQuery.to,
+            departureTime: getDepartureTime(index),
+            // Always use the provided duration or default to 30 minutes
+            estimatedTime: duration ? `${Math.round(duration)} mins` : "30 mins",
+            price: getPrice(index),
+          }))
 
         setBusRecommendations(busesWithRouteInfo)
       } catch (err) {
@@ -58,19 +102,11 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onCl
     }
 
     fetchBuses()
-  }, [searchQuery])
-
-  const getDepartureTime = (index: number): string => {
-    const hours = 10 + Math.floor(index / 2)
-    const minutes = (index % 2) * 30
-    const ampm = hours >= 12 ? "PM" : "AM"
-    const displayHours = hours > 12 ? hours - 12 : hours
-    return `${displayHours}:${minutes.toString().padStart(2, "0")} ${ampm}`
-  }
+  }, [searchQuery, duration])
 
   const getEstimatedTime = (index: number): string => {
-    const minutes = 30 + index * 5
-    return `${minutes} mins`
+    // If duration is provided, use it; otherwise default to 30 minutes
+    return duration ? `${Math.round(duration)} mins` : "30 mins"
   }
 
   const getPrice = (index: number): string => {
@@ -117,12 +153,12 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onCl
         </View>
       </View>
 
-      {distance && duration && (
-        <View style={styles.routeInfoContainer}>
-          <Text style={styles.routeInfoText}>Distance: {distance.toFixed(2)} km</Text>
-          <Text style={styles.routeInfoText}>Estimated Duration: {Math.round(duration)} mins</Text>
-        </View>
-      )}
+      <View style={styles.routeInfoContainer}>
+        {distance && <Text style={styles.routeInfoText}>Distance: {distance.toFixed(2)} km</Text>}
+        <Text style={styles.routeInfoText}>
+          Estimated Duration: {duration ? `${Math.round(duration)} mins` : "30 mins"}
+        </Text>
+      </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -141,7 +177,7 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onCl
         </View>
       ) : (
         <View style={styles.scrollContainer}>
-          <ScrollView 
+          <ScrollView
             style={styles.recommendationsScrollView}
             contentContainerStyle={styles.recommendationsContentContainer}
             showsVerticalScrollIndicator={true}
@@ -158,10 +194,7 @@ const Overlay: React.FC<OverlayProps> = ({ searchQuery, distance, duration, onCl
                   Departure: {bus.departureTime} | Estimated Time: {bus.estimatedTime}
                 </Text>
                 <Text style={styles.busPrice}>Price: {bus.price}</Text>
-                <TouchableOpacity 
-                  style={styles.bookNowButton} 
-                  onPress={() => handleBookNow(bus, index)}
-                >
+                <TouchableOpacity style={styles.bookNowButton} onPress={() => handleBookNow(bus, index)}>
                   <Text style={styles.bookNowButtonText}>Book Now</Text>
                 </TouchableOpacity>
               </View>

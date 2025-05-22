@@ -1,10 +1,32 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { TextInput, Button, Text, IconButton, Snackbar } from 'react-native-paper';
 import { Link, useRouter } from 'expo-router';
 import { useSignUpMutation } from '@/services/auth.service';
 import { RegisterFormData } from '@/types/form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// Create a zod schema for form validation
+const registerSchema = z
+  .object({
+    email: z.string().email("Invalid email address").min(1, "Email is required"),
+    firstName: z.string().min(1, "First Name is required"),
+    lastName: z.string().min(1, "Last Name is required"),
+    age: z
+      .preprocess((val) => (val === "" ? undefined : Number(val)), 
+        z.number()
+          .min(18, "You must be at least 18 years old")
+          .max(70, "Age must be less than 70 years old")
+      ),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
 
 const RegisterForm = () => {
   const router = useRouter();
@@ -13,9 +35,9 @@ const RegisterForm = () => {
   const {
     control,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
     defaultValues: {
       email: '',
       firstName: '',
@@ -23,7 +45,6 @@ const RegisterForm = () => {
       age: undefined,
       password: '',
       confirmPassword: '',
-      // role: 'user', //enum jun chai driver user
     },
   });
 
@@ -31,54 +52,101 @@ const RegisterForm = () => {
   const [confirmPasswordVisible, setConfirmPasswordVisible] = React.useState(false);
   const [snackbarVisible, setSnackbarVisible] = React.useState(false);
   const [snackbarMessage, setSnackbarMessage] = React.useState('');
+  const [snackbarColor, setSnackbarColor] = React.useState('');
+  const [emailError, setEmailError] = React.useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = React.useState(false);
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
+      // Clear any previous email error
+      setEmailError('');
+      
       await mutateAsync(data);
       
-      setSnackbarMessage('Registration Successful!');
+      setShowSuccessMessage(true);
+      setSnackbarMessage('Registration Successful! Proceeding to login...');
+      setSnackbarColor('#4BB543'); // Green color for success
       setSnackbarVisible(true);
-      // reset();
-      router.push('/(auth)/sign-in');
-    } catch (err) {
-      setSnackbarMessage('Error while registering, please try later!');
-      setSnackbarVisible(true);
+      
+      // Navigate to sign-in after successful registration
+      setTimeout(() => {
+        router.push('/(auth)/sign-in');
+      }, 2000);
+    } catch (err: any) {
       console.log('Could not register', err);
+      
+      // Check if the error is about email already existing
+      if (
+        err?.response?.data?.message === "Email already exists" || 
+        err?.message?.includes("Email already exists")
+      ) {
+        setEmailError('Email already exists. Please use a different email address.');
+        setSnackbarMessage('Email already exists');
+        setSnackbarColor('#FF0000'); // Red color for error
+        setSnackbarVisible(true);
+      } else {
+        setSnackbarMessage('Error while registering, please try later!');
+        setSnackbarColor('#FF0000'); // Red color for error
+        setSnackbarVisible(true);
+      }
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text variant="headlineMedium" style={styles.title}>
-        RouteMate
-      </Text>
-      <Text style={styles.trackRide}>Track Your Ride,</Text>
-      <Text style={styles.anywhere}>Anywhere,</Text>
-      <Text style={styles.anytime}>Anytime.</Text>
+      {/* Success Message Banner */}
+      {showSuccessMessage && (
+        <View style={styles.successBanner}>
+          <Text style={styles.successText}>Registration Successful! Proceeding to login...</Text>
+        </View>
+      )}
+
+      <View style={styles.headerContainer}>
+        <Text variant="headlineMedium" style={styles.title}>
+          RouteMate
+        </Text>
+        <View style={styles.taglineContainer}>
+          <Text style={styles.trackRide}>Track Your Ride,</Text>
+          <Text style={styles.anywhere}>Anywhere,</Text>
+          <Text style={styles.anytime}>Anytime.</Text>
+        </View>
+      </View>
 
       <Text style={styles.registerFormText}>Signup</Text>
 
-      {/* Email Field */}
+      {/* Email Field with Icon */}
       <Controller
         control={control}
         render={({ field: { onChange, onBlur, value } }) => (
-          <TextInput
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="Email"
-            value={value}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            mode="outlined"
-            style={styles.input}
-            error={!!errors.email}
-          />
+          <View style={styles.inputContainer}>
+            <TextInput
+              onBlur={onBlur}
+              onChangeText={(text) => {
+                onChange(text);
+                // Clear email error when user types
+                if (emailError) setEmailError('');
+              }}
+              placeholder="Email"
+              value={value}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              mode="outlined"
+              style={styles.input}
+              error={!!errors.email || !!emailError}
+              left={<TextInput.Icon icon="email" />}
+            />
+          </View>
         )}
         name="email"
+        rules={{ required: true }}
       />
-      {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+      {errors.email ? (
+        <Text style={styles.errorText}>{errors.email.message}</Text>
+      ) : emailError ? (
+        <Text style={styles.errorText}>{emailError}</Text>
+      ) : null}
 
-      {/* First Name and Last Name Fields */}
+      {/* First Name and Last Name Fields with Icons */}
       <View style={styles.nameContainer}>
         <Controller
           control={control}
@@ -91,9 +159,11 @@ const RegisterForm = () => {
               mode="outlined"
               style={[styles.input, styles.nameInput]}
               error={!!errors.firstName}
+              left={<TextInput.Icon icon="account" />}
             />
           )}
           name="firstName"
+          rules={{ required: true }}
         />
         <Controller
           control={control}
@@ -106,17 +176,27 @@ const RegisterForm = () => {
               mode="outlined"
               style={[styles.input, styles.nameInput]}
               error={!!errors.lastName}
+              left={<TextInput.Icon icon="account" />}
             />
           )}
           name="lastName"
+          rules={{ required: true }}
         />
       </View>
       <View style={styles.errorContainer}>
-        {errors.firstName && <Text style={styles.errorText}>{errors.firstName.message}</Text>}
-        {errors.lastName && <Text style={styles.errorText}>{errors.lastName.message}</Text>}
+        <View style={{ flex: 0.5 }}>
+          {errors.firstName && (
+            <Text style={styles.errorText}>{errors.firstName.message}</Text>
+          )}
+        </View>
+        <View style={{ flex: 0.5 }}>
+          {errors.lastName && (
+            <Text style={styles.errorText}>{errors.lastName.message}</Text>
+          )}
+        </View>
       </View>
 
-      {/* Age Field */}
+      {/* Age Field with Icon */}
       <Controller
         control={control}
         render={({ field: { onChange, onBlur, value } }) => (
@@ -129,69 +209,75 @@ const RegisterForm = () => {
             mode="outlined"
             style={styles.input}
             error={!!errors.age}
+            left={<TextInput.Icon icon="calendar" />}
           />
         )}
         name="age"
+        rules={{ required: true }}
       />
-      {errors.age && <Text style={styles.errorText}>{errors.age.message}</Text>}
+      {errors.age && (
+        <Text style={styles.errorText}>{errors.age.message}</Text>
+      )}
 
-      {/* Password Field */}
+      {/* Password Field with Icon */}
       <Controller
         control={control}
         render={({ field: { onChange, onBlur, value } }) => (
-          <View style={styles.passwordContainer}>
-            <TextInput
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Password"
-              value={value}
-              secureTextEntry={!passwordVisible}
-              mode="outlined"
-              style={styles.input}
-              error={!!errors.password}
-            />
-            <IconButton
-              icon={passwordVisible ? 'eye' : 'eye-off'}
-              size={24}
-              onPress={() => setPasswordVisible(!passwordVisible)}
-              style={styles.iconButton}
-              accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
-            />
-          </View>
+          <TextInput
+            onBlur={onBlur}
+            onChangeText={onChange}
+            placeholder="Password"
+            value={value}
+            secureTextEntry={!passwordVisible}
+            mode="outlined"
+            style={styles.input}
+            error={!!errors.password}
+            left={<TextInput.Icon icon="lock" />}
+            right={
+              <TextInput.Icon
+                icon={passwordVisible ? 'eye' : 'eye-off'}
+                onPress={() => setPasswordVisible(!passwordVisible)}
+                forceTextInputFocus={false}
+              />
+            }
+          />
         )}
         name="password"
+        rules={{ required: true }}
       />
-      {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+      {errors.password && (
+        <Text style={styles.errorText}>{errors.password.message}</Text>
+      )}
 
-      {/* Confirm Password Field */}
+      {/* Confirm Password Field with Icon */}
       <Controller
         control={control}
         render={({ field: { onChange, onBlur, value } }) => (
-          <View style={styles.passwordContainer}>
-            <TextInput
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Confirm Password"
-              value={value}
-              secureTextEntry={!confirmPasswordVisible}
-              mode="outlined"
-              style={styles.input}
-              error={!!errors.confirmPassword}
-            />
-            <IconButton
-              icon={confirmPasswordVisible ? 'eye' : 'eye-off'}
-              size={24}
-              onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
-              style={styles.iconButton}
-              accessibilityLabel={
-                confirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'
-              }
-            />
-          </View>
+          <TextInput
+            onBlur={onBlur}
+            onChangeText={onChange}
+            placeholder="Confirm Password"
+            value={value}
+            secureTextEntry={!confirmPasswordVisible}
+            mode="outlined"
+            style={styles.input}
+            error={!!errors.confirmPassword}
+            left={<TextInput.Icon icon="lock-check" />}
+            right={
+              <TextInput.Icon
+                icon={confirmPasswordVisible ? 'eye' : 'eye-off'}
+                onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
+                forceTextInputFocus={false}
+              />
+            }
+          />
         )}
         name="confirmPassword"
+        rules={{ required: true }}
       />
-      {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>}
+      {errors.confirmPassword && (
+        <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
+      )}
 
       {/* Submit Button */}
       <Button
@@ -199,7 +285,8 @@ const RegisterForm = () => {
         onPress={handleSubmit(onSubmit)}
         style={styles.registerButton}
         labelStyle={styles.buttonLabel}
-        disabled={isPending}>
+        disabled={isPending}
+      >
         {isPending ? 'Signing up...' : 'Signup'}
       </Button>
 
@@ -208,16 +295,18 @@ const RegisterForm = () => {
       {/* Sign In Link */}
       <View style={styles.info}>
         <Text style={styles.infoText}>Already have an account?</Text>
-        <Link style={styles.infoLink} href="/(auth)/sign-in">
-          Sign in
-        </Link>
+        <Pressable onPress={() => router.push('/(auth)/sign-in')}>
+          <Text style={styles.infoLink}>Sign in</Text>
+        </Pressable>
       </View>
 
       {/* Snackbar for Success/Error Messages */}
       <Snackbar
         visible={snackbarVisible}
         onDismiss={() => setSnackbarVisible(false)}
-        duration={3000}>
+        duration={3000}
+        style={{ backgroundColor: snackbarColor }}
+      >
         {snackbarMessage}
       </Snackbar>
     </View>
@@ -230,6 +319,25 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 6,
     padding: 20,
+  },
+  successBanner: {
+    backgroundColor: '#4BB543',
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  headerContainer: {
+    marginBottom: 20,
+  },
+  taglineContainer: {
+    marginLeft: 22,
   },
   title: {
     fontFamily: '',
@@ -246,36 +354,29 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#DB2955',
-    textAlign: 'center',
-    marginTop: -4,
+    marginLeft: 40,
     marginBottom: 2,
-    marginLeft: -22,
-    marginRight: 15,
     paddingBottom: 1,
-    paddingTop: 1,
+    paddingTop: 2,
   },
   anywhere: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#DB2955',
-    textAlign: 'center',
+    marginLeft: 40,
     marginBottom: 0,
-    marginLeft: -96,
-    marginRight: 15,
     marginTop: -5,
-    paddingTop: 1,
+    paddingTop: 4,
     paddingBottom: 1,
   },
   anytime: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#DB2955',
-    textAlign: 'center',
+    marginLeft: 40,
     marginBottom: 2,
-    marginLeft: -115,
-    marginRight: 15,
     marginTop: -3,
-    paddingTop: 1,
+    paddingTop: 4,
     paddingBottom: 20,
   },
   registerFormText: {
@@ -286,13 +387,12 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     paddingTop: 30,
   },
+  inputContainer: {
+    width: '100%',
+  },
   input: {
     width: '100%',
     height: 50,
-    borderWidth: 1,
-    borderColor: '#808080',
-    borderRadius: 8,
-    paddingHorizontal: 10,
     marginVertical: 8,
     fontSize: 16,
     color: '#000',
@@ -302,7 +402,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   nameInput: {
-    flex: 0.5, // Each input takes half the width
+    flex: 0.5,
   },
   errorContainer: {
     flexDirection: 'row',

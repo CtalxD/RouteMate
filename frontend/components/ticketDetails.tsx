@@ -1,655 +1,673 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState, useEffect } from "react"
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, Modal } from "react-native"
+import { useLocalSearchParams, useRouter } from "expo-router"
+import { Ionicons } from "@expo/vector-icons"
+import Khalti from "./Khalti"
 
-interface Ticket {
-  id: string;
-  busNumberPlate: string;
-  from: string;
-  to: string;
-  departureTime: string;
-  estimatedTime: string;
-  totalPrice: number;
-  passengerNames: string[];
-  paymentStatus: 'PENDING' | 'PAID' | 'CANCELLED';
-  createdAt: string;
-  updatedAt: string;
+type Ticket = {
+  id: string
+  busNumberPlate: string
+  from: string
+  to: string
+  departureTime: string
+  estimatedTime: string
+  totalPrice: number
+  passengerNames: string[]
+  paymentStatus: "PENDING" | "PAID" | "CANCELLED"
+  createdAt: string
+  expiresAt: string
 }
 
-const API_URL = 'http://localhost:5000/tickets';
+const TicketDetails = () => {
+  const params = useLocalSearchParams()
+  const [ticket, setTicket] = useState<Ticket | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancellingTicket, setCancellingTicket] = useState(false)
+  const router = useRouter()
 
-const TicketDetailsScreen: React.FC = () => {
-  const router = useRouter();
-  const params = useLocalSearchParams();
-  const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const API_BASE_URL = "http://localhost:5000"
 
-  const fetchTicket = async () => {
+  // Calculate expiration date (4 hours after booking)
+  const calculateExpirationDate = (createdAtString: string): string => {
     try {
-      setLoading(true);
-      setError(null);
-      
-      // First try to fetch specific ticket if ID is provided
-      if (params.id) {
-        try {
-          const response = await fetch(`${API_URL}/${params.id}`);
-          const data = await response.json();
-          
-          if (data.success) {
-            setTicket(data.data);
-            return;
-          }
-        } catch (e) {
-          console.log('Specific ticket endpoint not available, falling back to all tickets');
-        }
+      const createdAt = new Date(createdAtString)
+      if (isNaN(createdAt.getTime())) {
+        console.log("Invalid created date:", createdAtString)
+        return "N/A"
       }
 
-      // Fallback to fetching all tickets and filtering
-      const response = await fetch(API_URL);
-      const data = await response.json();
-      
-      if (data.success) {
-        const foundTicket = params.id 
-          ? data.data.find((t: Ticket) => t.id === params.id)
-          : data.data[0]; // Fallback to first ticket if no ID provided
-        
-        if (foundTicket) {
-          setTicket(foundTicket);
-        } else {
-          setError('Ticket not found');
-        }
-      } else {
-        setError('Failed to load tickets');
-      }
-    } catch (err) {
-      console.error('Error fetching ticket:', err);
-      setError('Failed to connect to server');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTicket();
-  }, [params.id]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchTicket();
-  };
-
-  const handleBack = () => {
-    router.back();
-  };
-
-  const handleDone = () => {
-    router.push('/(tabs)/lists'); // Navigate to tickets list screen
-  };
-
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+      // Add 4 hours to the created date
+      const expiresAt = new Date(createdAt.getTime() + 4 * 60 * 60 * 1000)
+      return expiresAt.toISOString()
     } catch (error) {
-      console.error('Error formatting date:', error);
-      return dateString;
+      console.error("Error calculating expiration date:", error)
+      return "N/A"
     }
-  };
-
-  const formatTime = (timeString: string) => {
-    try {
-      if (timeString.includes('AM') || timeString.includes('PM')) {
-        return timeString;
-      }
-      
-      const date = new Date(timeString);
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      console.error('Error formatting time:', error);
-      return timeString;
-    }
-  };
-
-  const getStatusBadgeStyle = (status: string) => {
-    switch (status) {
-      case 'PAID':
-        return [styles.statusBadge, styles.paidBadge];
-      case 'PENDING':
-        return [styles.statusBadge, styles.pendingBadge];
-      case 'CANCELLED':
-        return [styles.statusBadge, styles.cancelledBadge];
-      default:
-        return [styles.statusBadge, styles.pendingBadge];
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'PAID':
-        return 'Paid';
-      case 'PENDING':
-        return 'Pending Payment';
-      case 'CANCELLED':
-        return 'Cancelled';
-      default:
-        return status;
-    }
-  };
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <Text style={styles.loadingText}>Loading ticket details...</Text>
-      </View>
-    );
   }
 
-  if (error) {
+  useEffect(() => {
+    if (params.id && params.busNumberPlate) {
+      try {
+        const parsedPassengerNames = typeof params.passengerNames === "string" ? JSON.parse(params.passengerNames) : []
+
+        const createdAtString = String(params.createdAt || new Date().toISOString())
+        const expiresAtString = calculateExpirationDate(createdAtString)
+
+        setTicket({
+          id: String(params.id),
+          busNumberPlate: String(params.busNumberPlate),
+          from: String(params.from || ""),
+          to: String(params.to || ""),
+          departureTime: String(params.departureTime || ""),
+          estimatedTime: String(params.estimatedTime || ""),
+          totalPrice: Number.parseFloat(String(params.totalPrice || "0")),
+          passengerNames: parsedPassengerNames,
+          paymentStatus: String(params.paymentStatus || "PENDING") as "PENDING" | "PAID" | "CANCELLED",
+          createdAt: createdAtString,
+          expiresAt: expiresAtString,
+        })
+
+        console.log("Parsed departure time:", params.departureTime)
+      } catch (error) {
+        console.error("Error parsing ticket data from params:", error)
+        Alert.alert("Error", "Failed to load ticket details")
+      }
+      setLoading(false)
+      return
+    }
+
+    const fetchTicket = async () => {
+      try {
+        if (!params.id) {
+          setLoading(false)
+          return
+        }
+
+        const response = await fetch(`${API_BASE_URL}/tickets/${params.id}`)
+        const data = await response.json()
+
+        if (response.ok) {
+          // Add expiration date to the fetched ticket data
+          const ticketData = data.data
+          ticketData.expiresAt = calculateExpirationDate(ticketData.createdAt)
+          setTicket(ticketData)
+        } else {
+          Alert.alert("Error", data.message || "Failed to fetch ticket details")
+        }
+      } catch (error) {
+        console.error("Error fetching ticket:", error)
+        Alert.alert("Error", "Failed to fetch ticket details")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchTicket()
+  }, [params.id])
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString || dateString === "N/A") return "N/A"
+
+    try {
+      if (dateString.includes(":") && !dateString.includes("T")) {
+        return dateString
+      }
+
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.log("Invalid date encountered:", dateString)
+        return dateString
+      }
+
+      return date.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    } catch (error) {
+      console.error("Error formatting date:", error, dateString)
+      return dateString
+    }
+  }
+
+  // Check if ticket is expired
+  const isTicketExpired = (expiresAt: string): boolean => {
+    if (!expiresAt || expiresAt === "N/A") return false
+
+    try {
+      const expirationDate = new Date(expiresAt)
+      const now = new Date()
+      return expirationDate < now
+    } catch (error) {
+      console.error("Error checking ticket expiration:", error)
+      return false
+    }
+  }
+
+  const handleCancelBooking = () => {
+    // Show the custom cancel confirmation modal
+    setShowCancelModal(true)
+  }
+
+  const confirmCancelBooking = async () => {
+    // Close the modal
+    setShowCancelModal(false)
+
+    if (!ticket || !ticket.id) {
+      Alert.alert("Error", "Ticket information not available")
+      return
+    }
+
+    try {
+      setCancellingTicket(true)
+      // First try to cancel the ticket (PATCH endpoint)
+      const cancelResponse = await fetch(`${API_BASE_URL}/tickets/${ticket.id}/cancel`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const cancelData = await cancelResponse.json()
+
+      if (cancelResponse.ok) {
+        // Update the ticket status locally
+        setTicket({ ...ticket, paymentStatus: "CANCELLED" })
+        Alert.alert("Success", "Your booking has been cancelled successfully")
+      } else {
+        // If PATCH fails, try to delete the ticket (DELETE endpoint)
+        const deleteResponse = await fetch(`${API_BASE_URL}/tickets/${ticket.id}`, {
+          method: "DELETE",
+        })
+
+        if (deleteResponse.ok) {
+          Alert.alert("Success", "Your booking has been deleted successfully", [
+            { text: "OK", onPress: () => router.back() },
+          ])
+        } else {
+          const deleteData = await deleteResponse.json()
+          Alert.alert("Error", deleteData.message || "Failed to cancel booking")
+        }
+      }
+    } catch (error) {
+      console.error("Error cancelling ticket:", error)
+      Alert.alert("Error", "Failed to cancel booking. Please try again.")
+    } finally {
+      setCancellingTicket(false)
+    }
+  }
+
+  if (loading) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="warning" size={50} color="#FF6B6B" style={styles.errorIcon} />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={fetchTicket} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Try Again</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleDone} style={styles.backButton}>
-          <Text style={styles.backButtonText}>View All Tickets</Text>
-        </TouchableOpacity>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4a90e2" />
       </View>
-    );
+    )
   }
 
   if (!ticket) {
     return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="ticket" size={50} color="#4A90E2" style={styles.errorIcon} />
-        <Text style={styles.errorText}>No ticket data available</Text>
-        <TouchableOpacity onPress={fetchTicket} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>Refresh</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleDone} style={styles.backButton}>
-          <Text style={styles.backButtonText}>View All Tickets</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Ticket not found</Text>
       </View>
-    );
+    )
   }
 
+  const ticketExpired = isTicketExpired(ticket.expiresAt)
+
   return (
-    <ScrollView 
-      contentContainerStyle={styles.scrollContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#4A90E2']}
-          tintColor="#4A90E2"
-        />
-      }
-    >
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#4A90E2" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ticket Details</Text>
-          <View style={{ width: 24 }} /> {/* Spacer for alignment */}
+    <View style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color="#4a90e2" />
+        <Text style={styles.backButtonText}>Back</Text>
+      </TouchableOpacity>
+
+      <View
+        style={[
+          styles.ticketContainer,
+          ticket.paymentStatus === "PAID" && styles.paidTicket,
+          ticket.paymentStatus === "PENDING" && styles.pendingTicket,
+          ticket.paymentStatus === "CANCELLED" && styles.cancelledTicket,
+        ]}
+      >
+        <Text style={styles.title}>Ticket Details</Text>
+
+        <View style={styles.statusBadge}>
+          <Text
+            style={[
+              styles.statusBadgeText,
+              ticket.paymentStatus === "PAID" && styles.statusPaidBadge,
+              ticket.paymentStatus === "PENDING" && styles.statusPendingBadge,
+              ticket.paymentStatus === "CANCELLED" && styles.statusCancelledBadge,
+            ]}
+          >
+            {ticket.paymentStatus}
+          </Text>
         </View>
 
-        <View style={styles.ticketCard}>
-          <View style={styles.ticketHeader}>
-            <Text style={styles.ticketId}>Ticket #{ticket.id.substring(0, 8)}</Text>
-            <View style={getStatusBadgeStyle(ticket.paymentStatus)}>
-              <Text style={styles.statusText}>
-                {getStatusText(ticket.paymentStatus)}
-              </Text>
-            </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Bus Number:</Text>
+          <Text style={styles.detailValue}>{ticket.busNumberPlate}</Text>
+        </View>
+
+        <View style={styles.routeContainer}>
+          <View style={styles.locationContainer}>
+            <View style={styles.dot} />
+            <Text style={styles.locationText}>{ticket.from}</Text>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.routeContainer}>
-            <View style={styles.routeInfo}>
-              <Text style={styles.routeFrom}>{ticket.from.split(',')[0]}</Text>
-              <View style={styles.routeLine}>
-                <View style={styles.routeDot} />
-                <View style={styles.routeLineMiddle} />
-                <View style={styles.routeDotEnd} />
-              </View>
-              <Text style={styles.routeTo}>{ticket.to.split(',')[0]}</Text>
-            </View>
-            <View style={styles.routeTiming}>
-              <Text style={styles.routeTime}>{formatTime(ticket.departureTime)}</Text>
-              <Text style={styles.routeDuration}>{ticket.estimatedTime}</Text>
-            </View>
+          <View style={styles.routeLine} />
+          <View style={styles.locationContainer}>
+            <View style={styles.dot} />
+            <Text style={styles.locationText}>{ticket.to}</Text>
           </View>
+        </View>
 
-          <View style={styles.detailsSection}>
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="bus" size={18} color="#666" />
-              </View>
-              <Text style={styles.detailLabel}>Bus Number:</Text>
-              <Text style={styles.detailValue}>{ticket.busNumberPlate}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="people" size={18} color="#666" />
-              </View>
-              <Text style={styles.detailLabel}>Passengers:</Text>
-              <Text style={styles.detailValue}>{ticket.passengerNames.length}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Ionicons name="calendar" size={18} color="#666" />
-              </View>
-              <Text style={styles.detailLabel}>Booked On:</Text>
-              <Text style={styles.detailValue}>{formatDate(ticket.createdAt)}</Text>
-            </View>
-          </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Departure:</Text>
+          <Text style={styles.detailValue}>{formatDateTime(ticket.departureTime)}</Text>
+        </View>
 
-          <View style={styles.divider} />
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Est. Travel Time:</Text>
+          <Text style={styles.detailValue}>{ticket.estimatedTime}</Text>
+        </View>
 
-          <View style={styles.passengerSection}>
-            <Text style={styles.sectionTitle}>Passenger List</Text>
-            {ticket.passengerNames.map((name: string, index: number) => (
-              <View key={index} style={styles.passengerRow}>
-                <Text style={styles.passengerNumber}>{index + 1}.</Text>
+        <View style={styles.passengersContainer}>
+          <Text style={styles.detailLabel}>Passengers:</Text>
+          {ticket.passengerNames && ticket.passengerNames.length > 0 ? (
+            ticket.passengerNames.map((name, index) => (
+              <View key={index} style={styles.passengerItem}>
+                <Ionicons name="person-circle-outline" size={18} color="#666" />
                 <Text style={styles.passengerName}>{name}</Text>
               </View>
-            ))}
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.paymentSection}>
-            <Text style={styles.sectionTitle}>Payment Summary</Text>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Total Amount:</Text>
-              <Text style={styles.paymentValue}>Rs {ticket.totalPrice.toFixed(2)}</Text>
-            </View>
-            <View style={styles.paymentStatusRow}>
-              <Text style={styles.paymentLabel}>Status:</Text>
-              <View style={getStatusBadgeStyle(ticket.paymentStatus)}>
-                <Text style={styles.statusText}>
-                  {getStatusText(ticket.paymentStatus)}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionsTitle}>Important Information</Text>
-          <View style={styles.instructionItem}>
-            <Ionicons name="information-circle" size={18} color="#4A90E2" style={styles.instructionIcon} />
-            <Text style={styles.instructionText}>
-              Please arrive at least 30 minutes before departure
-            </Text>
-          </View>
-          <View style={styles.instructionItem}>
-            <Ionicons name="information-circle" size={18} color="#4A90E2" style={styles.instructionIcon} />
-            <Text style={styles.instructionText}>
-              Show this ticket or provide booking ID at boarding
-            </Text>
-          </View>
-          {ticket.paymentStatus === 'PENDING' && (
-            <View style={styles.instructionItem}>
-              <Ionicons name="information-circle" size={18} color="#FFA726" style={styles.instructionIcon} />
-              <Text style={styles.instructionText}>
-                Complete payment at the bus counter before boarding
-              </Text>
-            </View>
-          )}
-          {ticket.paymentStatus === 'CANCELLED' && (
-            <View style={styles.instructionItem}>
-              <Ionicons name="information-circle" size={18} color="#FF6B6B" style={styles.instructionIcon} />
-              <Text style={styles.instructionText}>
-                This ticket has been cancelled and is no longer valid
-              </Text>
-            </View>
+            ))
+          ) : (
+            <Text style={styles.detailValue}>No passenger names available</Text>
           )}
         </View>
 
-        <TouchableOpacity
-          style={styles.doneButton}
-          onPress={handleDone}
-        >
-          <Text style={styles.doneButtonText}>Back to Tickets</Text>
-        </TouchableOpacity>
+        <View style={styles.priceContainer}>
+          <Text style={styles.detailLabel}>Total Price:</Text>
+          <Text style={styles.priceValue}>Rs {ticket.totalPrice}</Text>
+        </View>
+
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>Booked On:</Text>
+          <Text style={styles.detailValue}>{formatDateTime(ticket.createdAt)}</Text>
+        </View>
+
+        {/* Expiration Date Row - Only show for non-cancelled tickets */}
+        {ticket.paymentStatus !== "CANCELLED" && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Expires On:</Text>
+            <Text style={[styles.detailValue, ticketExpired && styles.expiredText]}>
+              {formatDateTime(ticket.expiresAt)}
+              {ticketExpired && ticket.paymentStatus === "PENDING" && " (Expired)"}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.actionsContainer}>
+          
+            {ticket.paymentStatus === "PENDING" && !ticketExpired && (
+            <Khalti
+              amount={ticket.totalPrice * 1}
+              onSuccess={(ticketId: string) => {
+          Alert.alert("Payment Successful", "Your ticket has been paid successfully");
+              setTicket({ ...ticket, paymentStatus: "PAID" });
+              }}
+              onError={(error: string) => {
+            Alert.alert("Payment Failed", error || "Payment could not be completed");
+           }}
+            ticketId={ticket.id}
+            />
+            )}
+
+          {ticket.paymentStatus === "PENDING" && ticketExpired && (
+            <View style={styles.expiredNotice}>
+              <Ionicons name="alert-circle" size={20} color="#f44336" />
+              <Text style={styles.expiredNoticeText}>
+                This ticket reservation has expired. Please book a new ticket.
+              </Text>
+            </View>
+          )}
+
+          {ticket.paymentStatus !== "CANCELLED" && !ticketExpired && (
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancelBooking}>
+              <Text style={styles.cancelButtonText}>Cancel Booking</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </ScrollView>
-  );
-};
+
+      {/* Improved Cancel Confirmation Modal */}
+      <Modal
+        visible={showCancelModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCancelModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="alert-circle" size={28} color="#f44336" />
+              <Text style={styles.modalTitle}>Cancel Booking</Text>
+            </View>
+
+            <Text style={styles.modalMessage}>Are you sure you want to cancel this booking?</Text>
+            <Text style={styles.modalSubMessage}>This action cannot be undone.</Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonNo]}
+                onPress={() => setShowCancelModal(false)}
+                disabled={cancellingTicket}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalButtonNoText}>No, Keep It</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonYes]}
+                onPress={confirmCancelBooking}
+                disabled={cancellingTicket}
+                activeOpacity={0.7}
+              >
+                {cancellingTicket ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="trash-outline" size={16} color="#fff" style={styles.buttonIcon} />
+                    <Text style={styles.modalButtonYesText}>Yes, Cancel</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    paddingBottom: 30,
-    backgroundColor: '#f8f9fa',
-  },
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
+    backgroundColor: "#f5f5f5",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-  },
-  loadingText: {
-    marginTop: 20,
-    fontSize: 16,
-    color: '#666',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  errorIcon: {
-    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     fontSize: 18,
-    color: '#333',
+    color: "#f44336",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  retryButton: {
-    backgroundColor: '#4A90E2',
-    padding: 15,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 15,
-    width: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
   },
   backButtonText: {
-    color: '#4A90E2',
-    fontWeight: '600',
     fontSize: 16,
+    color: "#4a90e2",
+    marginLeft: 5,
   },
-  ticketCard: {
-    backgroundColor: '#fff',
+  ticketContainer: {
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  ticketHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  ticketId: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'monospace',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  paidBadge: {
-    backgroundColor: '#E3F2FD',
-  },
-  pendingBadge: {
-    backgroundColor: '#FFF3E0',
-  },
-  cancelledBadge: {
-    backgroundColor: '#FFEBEE',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  paidStatusText: {
-    color: '#1E88E5',
-  },
-  pendingStatusText: {
-    color: '#FB8C00',
-  },
-  cancelledStatusText: {
-    color: '#E53935',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#eee',
-    marginVertical: 15,
-  },
-  routeContainer: {
-    marginBottom: 20,
-  },
-  routeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  routeFrom: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  routeTo: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-    textAlign: 'right',
-  },
-  routeLine: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    marginHorizontal: 10,
-  },
-  routeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#4A90E2',
-  },
-  routeDotEnd: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#FF6B6B',
-  },
-  routeLineMiddle: {
-    width: 2,
-    height: 20,
-    backgroundColor: '#4A90E2',
-    marginVertical: 2,
-  },
-  routeTiming: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  routeTime: {
-    fontSize: 14,
-    color: '#666',
-  },
-  routeDuration: {
-    fontSize: 14,
-    color: '#666',
-  },
-  detailsSection: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
-    color: '#444',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  detailIcon: {
-    marginRight: 10,
-    width: 24,
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 15,
-    color: '#666',
-    marginRight: 10,
-    flex: 1,
-  },
-  detailValue: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-  },
-  passengerSection: {
-    marginBottom: 10,
-  },
-  passengerRow: {
-    flexDirection: 'row',
-    marginBottom: 10,
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-  },
-  passengerNumber: {
-    fontSize: 14,
-    color: '#666',
-    marginRight: 12,
-    width: 24,
-    textAlign: 'center',
-  },
-  passengerName: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
-    flex: 1,
-  },
-  paymentSection: {
-    marginBottom: 10,
-  },
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  paymentStatusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  paymentLabel: {
-    fontSize: 15,
-    color: '#666',
-  },
-  paymentValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4A90E2',
-  },
-  instructionsContainer: {
-    marginTop: 10,
-    padding: 15,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#444',
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    marginBottom: 10,
-    alignItems: 'flex-start',
-  },
-  instructionIcon: {
-    marginRight: 10,
-    marginTop: 2,
-  },
-  instructionText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  doneButton: {
-    backgroundColor: '#4A90E2',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  doneButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
+  paidTicket: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#4CAF50",
   },
-});
+  pendingTicket: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#FFC107",
+  },
+  cancelledTicket: {
+    borderLeftWidth: 5,
+    borderLeftColor: "#F44336",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+    color: "#333",
+  },
+  statusBadge: {
+    alignSelf: "center",
+    marginBottom: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+  },
+  statusBadgeText: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  statusPaidBadge: {
+    backgroundColor: "#E8F5E9",
+    color: "#4CAF50",
+  },
+  statusPendingBadge: {
+    backgroundColor: "#FFF8E1",
+    color: "#FFC107",
+  },
+  statusCancelledBadge: {
+    backgroundColor: "#FFEBEE",
+    color: "#F44336",
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  detailLabel: {
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
+  },
+  detailValue: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "400",
+  },
+  expiredText: {
+    color: "#f44336",
+    fontWeight: "500",
+  },
+  routeContainer: {
+    marginVertical: 20,
+    paddingHorizontal: 10,
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#4a90e2",
+    marginRight: 10,
+  },
+  locationText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
+  routeLine: {
+    width: 2,
+    height: 30,
+    backgroundColor: "#4a90e2",
+    marginLeft: 5,
+    marginVertical: -10,
+  },
+  passengersContainer: {
+    marginBottom: 15,
+  },
+  passengerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+    marginLeft: 10,
+  },
+  passengerName: {
+    fontSize: 15,
+    marginLeft: 5,
+    color: "#333",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#eee",
+  },
+  priceValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#ff6b00",
+  },
+  actionsContainer: {
+    marginTop: 10,
+  },
+  cancelButton: {
+    backgroundColor: "#f44336",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  expiredNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFEBEE",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  expiredNoticeText: {
+    color: "#D32F2F",
+    marginLeft: 8,
+    fontSize: 14,
+    flex: 1,
+  },
+  // Improved Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "85%",
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginLeft: 10,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  modalSubMessage: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginTop: 8,
+  },
+  modalButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    minWidth: "45%",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  modalButtonNo: {
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  modalButtonNoText: {
+    color: "#555",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  modalButtonYes: {
+    backgroundColor: "#f44336",
+  },
+  modalButtonYesText: {
+    color: "white",
+    fontWeight: "600",
+    fontSize: 15,
+  },
+  buttonIcon: {
+    marginRight: 6,
+  },
+})
 
-export default TicketDetailsScreen;
+export default TicketDetails

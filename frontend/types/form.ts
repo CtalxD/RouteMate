@@ -1,8 +1,7 @@
 export type DocumentFormData = {
   licenseNumber: string;
   productionYear: string;
-  blueBookImages: string[];
-  vehicleImages: string[];
+  busNumber: string;
   userId: string;
 };
 

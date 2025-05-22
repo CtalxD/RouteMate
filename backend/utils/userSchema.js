@@ -1,3 +1,5 @@
+//backend/utils/userSchema.js
+
 const { z } = require("zod");
 
 const registerSchema = z
@@ -30,12 +32,6 @@ const userUpdateSchema = z.object({
   document: z
     .object({
       licenseNumber: z.string().min(1, "License number is required"),
-      blueBookImage: z
-        .array(z.string())
-        .min(1, "At least one blue book image is required"),
-      vehicleImage: z
-        .array(z.string())
-        .min(1, "At least one vehicle image is required"),
       productionYear: z
         .number()
         .min(2000, "Vehicle must not be older than 2000")

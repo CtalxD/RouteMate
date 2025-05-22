@@ -27,26 +27,30 @@ export const useFetchDocuments = () => {
   });
 };
 
-export const useFetchDocument = (id: number) => {
+export const useFetchDocumentByUser = (userId: string) => {
   return useQuery({
-    queryKey: ["documents", id],
+    queryKey: ['userDocument', userId],
     queryFn: async () => {
+      if (!userId) return null;
       try {
         const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
-        const response = await api.get(`/document/${id}`, {
+        const response = await api.get(`/document/user/${userId}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
         });
         return response.data.data as DocumentFormData;
       } catch (error: any) {
+        if (error.response?.status === 404) {
+          return null; // Document not found is a valid state
+        }
         if (error.response?.status === 401) {
           throw new Error('Unauthorized access. Please login again.');
         }
         throw error;
       }
     },
-    enabled: !!id,
+    enabled: !!userId,
   });
 };
 
@@ -54,7 +58,7 @@ export const useCreateDocument = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (formData: FormData) => {
+    mutationFn: async (formData: any) => {
       const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);      
       try {
         const response = await api.post('/document', formData, {
@@ -62,7 +66,6 @@ export const useCreateDocument = () => {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
-          
         });
         
         return response.data;
@@ -70,6 +73,9 @@ export const useCreateDocument = () => {
         console.error("API request error:", error);
         if (error.response) {
           console.error("Response data:", error.response.data);
+          if (error.response.status === 400 && error.response.data.message.includes("already uploaded")) {
+            throw new Error(error.response.data.message);
+          }
           throw new Error(error.response?.data?.message || "Failed to upload documents");
         }
         throw error;
@@ -82,12 +88,9 @@ export const useCreateDocument = () => {
         error.message || "Failed to upload documents. Please try again."
       );
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
-      Alert.alert(
-        "Success",
-        "Your documents have been submitted successfully and are pending review."
-      );
+      queryClient.invalidateQueries({ queryKey: ['userDocument'] });
     },
   });
 };
@@ -101,13 +104,14 @@ export const useUpdateDocument = () => {
       const response = await api.put(`/document/${id}`, updates, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
         },
       });
       return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['userDocument'] });
     },
     onError: (error: any) => {
       console.error("Error updating document:", error);
@@ -133,12 +137,69 @@ export const useDeleteDocument = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['userDocument'] });
     },
     onError: (error: any) => {
       console.error("Error deleting document:", error);
       Alert.alert(
         "Deletion Failed", 
         error.message || "Failed to delete document. Please try again."
+      );
+    },
+  });
+};
+
+export const useApproveDocument = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, adminComment }: { id: number; adminComment?: string }) => {
+      const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
+      const response = await api.put(`/document/${id}/approve`, { adminComment }, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['userDocument'] });
+    },
+    onError: (error: any) => {
+      console.error("Error approving document:", error);
+      Alert.alert(
+        "Approval Failed", 
+        error.message || "Failed to approve document. Please try again."
+      );
+    },
+  });
+};
+
+export const useRejectDocument = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, adminComment }: { id: number; adminComment: string }) => {
+      const accessToken = await asyncStore.getItem(ACCESS_TOKEN_KEY);
+      const response = await api.put(`/document/${id}/reject`, { adminComment }, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['userDocument'] });
+    },
+    onError: (error: any) => {
+      console.error("Error rejecting document:", error);
+      Alert.alert(
+        "Rejection Failed", 
+        error.message || "Failed to reject document. Please try again."
       );
     },
   });

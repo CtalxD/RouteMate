@@ -9,10 +9,19 @@ enum Role {
   DRIVER
 }
 
-enum DocumentStatus{
-PENDING
-APPROVED
-REJECTED
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
 }
 
 model User {
@@ -25,7 +34,10 @@ model User {
   age        Int
   role       Role      @default(USER)
   document   Document? @relation("UserDocument")
+  bus        Bus?      @relation("UserBus")
+  ratings    BusRating[]
   driverLocation DriverLocation?
+  tickets    Ticket[]
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -37,16 +49,23 @@ model Admin {
 }
 
 model Bus {
-  busId     String   @id @default(uuid())
-  busNumber String   @unique @db.VarChar(20)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  busId      String   @id @default(uuid())
+  busNumber  String   @unique
+  userId     Int?     @unique
+  user       User?    @relation(fields: [userId], references: [id], name: "UserBus")
+  driverName String?
+  ratings    BusRating[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("buses")
 }
 
 model Document {
   id            Int      @id @default(autoincrement())
   licenseNumber Int
   productionYear Int
+  busNumber     String?
   status        DocumentStatus  @default(PENDING)
   user          User     @relation("UserDocument", fields: [userId], references: [id])
   userId        Int      @unique
@@ -59,14 +78,58 @@ model Ticket {
   id             String   @id @default(uuid())
   busNumberPlate String   
   from           String  
-  to             String  
+  to             String
+  fromLat        Float?
+  fromLon        Float?
+  toLat          Float?
+  toLon          Float?  
   departureTime  String   
   estimatedTime  String     
   totalPrice     Float 
   passengerNames String[]
-  paymentStatus  String   @default("PENDING") // "PENDING" or "PAID"
+  paymentStatus  PaymentStatus  @default(INITIATED)
+  user           User    @relation(fields: [userId], references: [id])
+  userId         Int
+  payments       Payment[]
+  expiresAt      DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([busNumberPlate])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model Payment {
+  id            Int          @id @default(autoincrement())
+  amount        Float
+  transactionId String       @unique
+  status        PaymentStatus @default(INITIATED)
+  paymentMethod String?
+  ticket        Ticket?      @relation(fields: [ticketId], references: [id])
+  ticketId      String?
+  metadata      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([ticketId])
+}
+
+model BusRating {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  bus       Bus      @relation(fields: [busId], references: [busId])
+  busId     String
+  rating    Int     
+  comment   String?  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, busId])
+  @@index([busId])
 }
 
 model DriverLocation {

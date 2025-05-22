@@ -1,3 +1,5 @@
+//backend/controller/userController.js
+
 const { Resend } = require('resend');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");

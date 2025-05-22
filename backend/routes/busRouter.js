@@ -1,5 +1,3 @@
-// backend/routes/busRouter.js
-
 const express = require("express")
 const router = express.Router()
 const busController = require("../controller/busController")
@@ -13,5 +11,9 @@ router.get("/:busId", busController.getBusById)
 router.post("/", authenticateToken, authorizeRole("ADMIN"), busController.createBus)
 router.put("/:busId", authenticateToken, authorizeRole("ADMIN"), busController.updateBus)
 router.delete("/:busId", authenticateToken, authorizeRole("ADMIN"), busController.deleteBus)
+
+// Driver assignment routes
+router.put("/:busId/assign-driver", authenticateToken, authorizeRole("ADMIN"), busController.assignDriverToBus)
+router.put("/:busId/remove-driver", authenticateToken, authorizeRole("ADMIN"), busController.removeDriverFromBus)
 
 module.exports = router

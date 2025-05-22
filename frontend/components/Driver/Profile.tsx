@@ -1,254 +1,414 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { useUpdateProfile, useGetProfile } from '@/services/profile.service';
+"use client"
+
+import { useState, useEffect } from "react"
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+} from "react-native"
+import { useUpdateProfile, useGetProfile } from "@/services/profile.service"
+import { useRouter } from "expo-router"
+import Icon from "react-native-vector-icons/Ionicons"
 
 interface ProfileProps {
-  onBack: () => void;
+  onBack?: () => void
 }
 
 const Profile = ({ onBack }: ProfileProps) => {
-  const { data: profileData, isLoading, isError } = useGetProfile();
+  const router = useRouter()
+  const { data: profileData, isLoading, isError } = useGetProfile()
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName:"",
-    profilePicUri: '',
-    profilePicType: '',
-    email: '',
-  });
-  const [formError, setFormError] = useState('');
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "",
+  })
+  const [formError, setFormError] = useState("")
+  const [successMessage, setSuccessMessage] = useState("")
 
-  const updateProfileMutation = useUpdateProfile();
+  const updateProfileMutation = useUpdateProfile()
 
   useEffect(() => {
     if (profileData) {
       setFormData({
-        firstName: profileData.firstName || '',
-        profilePicUri: profileData.profilePic || '',
-        profilePicType: '',
-        email: profileData.email || '',
-        lastName:profileData.lastName || ""
-      });
+        firstName: profileData.firstName || "",
+        lastName: profileData.lastName || "",
+        email: profileData.email || "",
+        role: profileData.role || "",
+      })
     }
-  }, [profileData]);
-
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Sorry, we need camera roll permissions to make this work!');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      setFormData({
-        ...formData,
-        profilePicUri: asset.uri,
-        profilePicType: asset.type || 'image/jpeg',
-      });
-    }
-  };
+  }, [profileData])
 
   const handleSaveChanges = async () => {
     try {
-      setFormError('');
-      const trimmedfirstName = formData.firstName.trim();
+      setFormError("")
+      setSuccessMessage("")
+      const trimmedFirstName = formData.firstName.trim()
+      const trimmedLastName = formData.lastName.trim()
 
-      if (!trimmedfirstName) {
-        setFormError('All fields are required');
-        return;
+      if (!trimmedFirstName) {
+        setFormError("First name is required")
+        return
       }
 
-      const formDataToSend = new FormData();
-      formDataToSend.append('firstName', trimmedfirstName);
+      const formDataToSend = new FormData()
+      formDataToSend.append("firstName", trimmedFirstName)
+      formDataToSend.append("lastName", trimmedLastName)
 
-      if (formData.profilePicUri && !formData.profilePicUri.startsWith('http')) {
-        // Only append if it's a new image (not a URL)
-        const filename = formData.profilePicUri.split('/').pop();
-        const match = /\.(\w+)$/.exec(filename || '');
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
-        
-        const imageFile = {
-          uri: formData.profilePicUri,
-          type: type,
-          name: filename || 'profile.jpg',
-        };
+      await updateProfileMutation.mutateAsync(formDataToSend)
+      setSuccessMessage("Profile updated successfully!")
 
-        formDataToSend.append('profilePic', imageFile as any);
-      }
-
-      await updateProfileMutation.mutateAsync(formDataToSend);
-      onBack();
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage("")
+      }, 3000)
     } catch (error) {
-      console.error('Failed to update profile:', error);
-      setFormError('Failed to update profile. Please try again.');
+      console.error("Failed to update profile:", error)
+      setFormError("Failed to update profile. Please try again.")
     }
-  };
+  }
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back">
+        <Icon name="arrow-back" size={24} color="#0D6EFD" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Edit Profile</Text>
+      <View style={styles.headerRight} />
+    </View>
+  )
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color="#007BFF" />
-      </View>
-    );
+      <SafeAreaView style={styles.container}>
+        {renderHeader()}
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0D6EFD" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   if (isError) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <Text>Error loading profile. Please try again later.</Text>
-      </View>
-    );
+      <SafeAreaView style={styles.container}>
+        {renderHeader()}
+        <View style={styles.errorContainer}>
+          <Icon name="alert-circle-outline" size={60} color="#DB2955" />
+          <Text style={styles.errorTitle}>Oops!</Text>
+          <Text style={styles.errorText}>Error loading profile data.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => window.location.reload()}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
   }
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.profilePicture} onPress={pickImage}>
-        {formData.profilePicUri ? (
-          <Image source={{ uri: formData.profilePicUri }} style={styles.profileImage} />
-        ) : (
-          <View style={styles.profileImagePlaceholder}>
-            <Text style={styles.profileImagePlaceholderText}>Add Photo</Text>
+    <SafeAreaView style={styles.container}>
+      {renderHeader()}
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidView}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.profileImageContainer}>
+            <View style={styles.profileImage}>
+              <Text style={styles.profileInitials}>
+                {formData.firstName.charAt(0)}
+                {formData.lastName.charAt(0)}
+              </Text>
+            </View>
           </View>
-        )}
-      </TouchableOpacity>
-      <View style={styles.profileDetails}>
-        <Text style={styles.profileTitle}>Edit Profile</Text>
-        <TextInput
-          style={[styles.input, formError ? styles.inputError : null]}
-          placeholder="first name"
-          value={formData.firstName}
-          onChangeText={(text) => {
-            setFormError('');
-            setFormData({ ...formData, firstName: text });
-          }}
-        />
-        <TextInput
-          style={[styles.input, formError ? styles.inputError : null]}
-          placeholder="last name"
-          value={formData.lastName}
-          onChangeText={(text) => {
-            setFormError('');
-            setFormData({ ...formData, lastName: text });
-          }}
-        />
-        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
-        <TextInput
-          style={[styles.input, styles.disabledInput]}
-          placeholder="Email"
-          value={profileData?.email}
-          editable={false}
-        />
-        <TouchableOpacity
-          onPress={handleSaveChanges}
-          style={[styles.saveButton, updateProfileMutation.isPending && styles.disabledButton]}
-          disabled={updateProfileMutation.isPending}
-        >
-          <Text style={styles.saveButtonText}>
-            {updateProfileMutation.isPending ? 'Saving...' : 'Save Changes'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+
+          <View style={styles.formContainer}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>First Name</Text>
+              <TextInput
+                style={[styles.input, formError && formError.includes("First name") ? styles.inputError : null]}
+                placeholder="Enter your first name"
+                value={formData.firstName}
+                onChangeText={(text) => {
+                  setFormError("")
+                  setFormData({ ...formData, firstName: text })
+                }}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Last Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your last name"
+                value={formData.lastName}
+                onChangeText={(text) => {
+                  setFormError("")
+                  setFormData({ ...formData, lastName: text })
+                }}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={[styles.input, styles.disabledInput, styles.emailContainer]}>
+                <Icon name="mail-outline" size={20} color="#999" style={styles.emailIcon} />
+                <Text style={styles.emailText}>{profileData?.email}</Text>
+              </View>
+              <Text style={styles.emailHint}>Email cannot be changed</Text>
+            </View>
+
+            {formError ? (
+              <View style={styles.errorNotice}>
+                <Icon name="alert-circle" size={18} color="#DB2955" />
+                <Text style={styles.errorText}>{formError}</Text>
+              </View>
+            ) : null}
+
+            {successMessage ? (
+              <View style={styles.successNotice}>
+                <Icon name="checkmark-circle" size={18} color="#4CAF50" />
+                <Text style={styles.successText}>{successMessage}</Text>
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            onPress={handleSaveChanges}
+            style={[styles.saveButton, updateProfileMutation.isPending && styles.disabledButton]}
+            disabled={updateProfileMutation.isPending}
+          >
+            {updateProfileMutation.isPending ? (
+              <View style={styles.savingContainer}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Saving...</Text>
+              </View>
+            ) : (
+              <>
+                <Icon name="save-outline" size={20} color="#FFF" />
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: "#F8F9FA",
   },
-  profilePicture: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#E0E0E0',
-    alignSelf: 'center',
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#007BFF',
-    overflow: 'hidden',
-  },
-  profileDetails: {
+  keyboardAvoidView: {
     flex: 1,
-    justifyContent: 'center',
   },
-  profileTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 20,
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 100,
   },
-  input: {
-    height: 55,
-    width: '100%',
-    borderColor: '#ddd',
-    borderWidth: 1,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
+    backgroundColor: "#FFFFFF",
+  },
+  backButton: {
+    padding: 8,
     borderRadius: 8,
-    paddingLeft: 10,
-    marginBottom: 20,
+    backgroundColor: "#E9F2FF",
+  },
+  headerTitle: {
     fontSize: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 5,
-    backgroundColor: '#FFF',
+    fontWeight: "600",
+    color: "#082A3F",
   },
-  disabledInput: {
-    backgroundColor: '#E8E8E8',
+  headerRight: {
+    width: 40,
   },
-  saveButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#A3C7FF',
-  },
-  saveButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  profileImageContainer: {
+    alignItems: "center",
+    marginTop: 24,
+    marginBottom: 32,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    resizeMode: 'cover',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#082A3F",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#DB2955",
   },
-  profileImagePlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  profileInitials: {
+    fontSize: 36,
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
-  profileImagePlaceholderText: {
-    color: '#666',
+  formContainer: {
+    paddingHorizontal: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#082A3F",
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#495057",
+    marginBottom: 8,
+  },
+  input: {
+    height: 56,
+    borderWidth: 1,
+    borderColor: "#CED4DA",
+    borderRadius: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
+    color: "#082A3F",
+    backgroundColor: "#FFFFFF",
+  },
+  disabledInput: {
+    backgroundColor: "#F8F9FA",
+    borderColor: "#E9ECEF",
+  },
+  emailContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  emailIcon: {
+    marginRight: 8,
+  },
+  emailText: {
+    fontSize: 16,
+    color: "#6C757D",
+  },
+  emailHint: {
+    fontSize: 12,
+    color: "#6C757D",
+    marginTop: 4,
+    marginLeft: 4,
   },
   inputError: {
-    borderColor: '#FF0000',
+    borderColor: "#DB2955",
+    borderWidth: 1,
+  },
+  errorNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFE8ED",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  successNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EAFFEA",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
   },
   errorText: {
-    color: '#FF0000',
+    color: "#DB2955",
     fontSize: 14,
-    marginTop: -15,
-    marginBottom: 15,
-    marginLeft: 5,
+    marginLeft: 8,
   },
-});
+  successText: {
+    color: "#4CAF50",
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E9ECEF",
+  },
+  saveButton: {
+    backgroundColor: "#DB2955",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+  },
+  disabledButton: {
+    backgroundColor: "#82B4FF",
+  },
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  savingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#6C757D",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#343A40",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  retryButton: {
+    marginTop: 24,
+    backgroundColor: "#0D6EFD",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+})
 
-export default Profile;
+export default Profile

@@ -1,3 +1,5 @@
+//backend/app.js
+
 const express = require("express")
 const app = express()
 const http = require("http")
@@ -8,8 +10,9 @@ const userRoutes = require("./routes/userRouter")
 const adminRoutes = require("./routes/adminRouter")
 const documentRouter = require("./routes/documentRouter")
 const paymentRoutes = require("./routes/paymentRouter")
-const busRoutes = require("./routes/busRouter");
-const ticketRoutes = require('./routes/ticketRouter');
+const busRoutes = require("./routes/busRouter")
+const ratingRoutes = require("./routes/ratingRouter")
+const ticketRoutes = require("./routes/ticketRouter")
 const cookieParser = require("cookie-parser")
 const { config } = require("./config")
 const cors = require("cors")
@@ -55,12 +58,12 @@ io.on("connection", (socket) => {
   // Handle user authentication
   socket.on("authenticate", (data) => {
     if (data.userId) {
-      console.log(`User authenticated: ${data.userId} as ${data.userType || 'user'}`)
+      console.log(`User authenticated: ${data.userId} as ${data.userType || "user"}`)
       const userInfo = connectedUsers.get(socket.id) || {}
       connectedUsers.set(socket.id, {
         ...userInfo,
         userId: data.userId,
-        userType: data.userType || 'user'
+        userType: data.userType || "user",
       })
     }
   })
@@ -68,7 +71,7 @@ io.on("connection", (socket) => {
   // Handle location updates from drivers
   socket.on("update-location", (data) => {
     console.log("Location update received:", data)
-    
+
     const user = connectedUsers.get(socket.id)
     const userId = user?.userId || socket.id
 
@@ -76,7 +79,7 @@ io.on("connection", (socket) => {
     userLocations.set(socket.id, {
       socketId: socket.id,
       userId,
-      userType: user?.userType || 'unknown',
+      userType: user?.userType || "unknown",
       ...data,
       timestamp: Date.now(),
     })
@@ -85,12 +88,12 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("location-updated", {
       socketId: socket.id,
       userId,
-      userType: user?.userType || 'unknown',
+      userType: user?.userType || "unknown",
       ...data,
     })
 
     // Broadcast driver location updates to dashboard
-    if (user?.userType === 'driver' || data.isDriver) {
+    if (user?.userType === "driver" || data.isDriver) {
       socket.broadcast.emit("driver-location-updated", {
         socketId: socket.id,
         userId,
@@ -116,16 +119,16 @@ io.on("connection", (socket) => {
       const user = connectedUsers.get(socket.id)
       user.isOnline = data.status
       connectedUsers.set(socket.id, user)
-      
+
       // Broadcast driver status to dashboard
-      if (user.userType === 'driver' || data.isDriver) {
+      if (user.userType === "driver" || data.isDriver) {
         io.emit("driver-status-changed", {
           socketId: socket.id,
           userId: user.userId || socket.id,
           status: data.status,
           latitude: data.latitude,
           longitude: data.longitude,
-          accuracy: data.accuracy
+          accuracy: data.accuracy,
         })
       }
     }
@@ -148,19 +151,19 @@ io.on("connection", (socket) => {
   // Handle requests for current driver data
   socket.on("get-current-drivers", () => {
     const activeDrivers = []
-    
+
     // Collect all online drivers
     userLocations.forEach((location, socketId) => {
       const user = connectedUsers.get(socketId)
-      if (user && user.isOnline && (user.userType === 'driver' || location.isDriver)) {
+      if (user && user.isOnline && (user.userType === "driver" || location.isDriver)) {
         activeDrivers.push({
           socketId,
           userId: user.userId || socketId,
-          ...location
+          ...location,
         })
       }
     })
-    
+
     // Send current drivers to requesting client
     socket.emit("current-drivers", activeDrivers)
   })
@@ -172,7 +175,7 @@ io.on("connection", (socket) => {
       currentUsers.push({
         ...location,
         userId: connectedUsers.get(socketId).userId || socketId,
-        userType: connectedUsers.get(socketId).userType || 'unknown'
+        userType: connectedUsers.get(socketId).userType || "unknown",
       })
     }
   })
@@ -181,19 +184,53 @@ io.on("connection", (socket) => {
     socket.emit("current-users", currentUsers)
   }
 
+  // Handle ride started events
+  socket.on("ride-started", (data) => {
+    console.log("Ride started event received:", data)
+
+    // Broadcast to all clients except sender
+    socket.broadcast.emit("ride-started", {
+      ...data,
+      socketId: socket.id,
+    })
+
+    // Acknowledge receipt
+    socket.emit("ride-started-ack", {
+      status: "received",
+      timestamp: Date.now(),
+    })
+  })
+
+  // Handle ride ended events
+  socket.on("ride-ended", (data) => {
+    console.log("Ride ended event received:", data)
+
+    // Broadcast to all clients except sender
+    socket.broadcast.emit("ride-ended", {
+      ...data,
+      socketId: socket.id,
+    })
+
+    // Acknowledge receipt
+    socket.emit("ride-ended-ack", {
+      status: "received",
+      timestamp: Date.now(),
+    })
+  })
+
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`)
     const user = connectedUsers.get(socket.id)
-    
+
     // Notify about driver disconnection if applicable
-    if (user && (user.userType === 'driver')) {
-      socket.broadcast.emit("driver-disconnected", { 
+    if (user && user.userType === "driver") {
+      socket.broadcast.emit("driver-disconnected", {
         socketId: socket.id,
-        userId: user.userId || socket.id
+        userId: user.userId || socket.id,
       })
     }
-    
+
     connectedUsers.delete(socket.id)
     userLocations.delete(socket.id)
 
@@ -210,20 +247,19 @@ setInterval(() => {
       userLocations.delete(socketId)
     }
   })
-}, 30000) // Run every 30 seconds
-
+}, 3000) // Run every 30 seconds
 
 // Routes
 app.use("/", userRoutes)
-app.use('/document', documentRouter);
+app.use("/document", documentRouter)
 app.use("/payment", paymentRoutes)
 app.use("/admin", adminRoutes)
-app.use("/buses", busRoutes);
-app.use('/tickets', ticketRoutes);
-
+app.use("/buses", busRoutes)
+app.use("/tickets", ticketRoutes)
+app.use("/ratings", ratingRoutes)
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, res) => {
   console.error(err.stack)
   res.status(500).send("Something broke!")
 })

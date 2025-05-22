@@ -26,18 +26,6 @@ const createDocumentSchema = z.object({
       return val >= 1900 && val <= currentYear;
     }, `Production year must be between 1900 and ${new Date().getFullYear()}`),
 
-  // Validate file arrays
-  blueBookImage: z
-    .array(filePathSchema)
-    .min(1, "At least one blue book image is required")
-    .max(5, "Maximum 5 blue book images allowed"),
-
-  vehicleImage: z
-    .array(filePathSchema)
-    .min(1, "At least one vehicle image is required")
-    .max(5, "Maximum 5 vehicle images allowed"),
-  userId: z.number().int().positive("User ID must be a positive integer"),
-  status: DocumentStatus.optional().default("PENDING"),
 })
 
 // Schema for updating document status by admin
@@ -55,8 +43,6 @@ const documentResponseSchema = z.object({
   id: z.number().int().positive(),
   licenseNumber: z.number().int(),
   productionYear: z.number().int(),
-  blueBookImage: z.array(z.string().url()),
-  vehicleImage: z.array(z.string().url()),
   status: DocumentStatus,
   adminComment: z.string().nullable(),
   userId: z.number().int().positive(),

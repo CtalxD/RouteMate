@@ -9,6 +9,9 @@ const TabLayout = () => {
       <Stack.Screen name="busdocs" options={{ headerShown: false }} />
       <Stack.Screen name="payment" options={{ headerShown: false }} />
       <Stack.Screen name="uiTicks" options={{ headerShown: false }} />
+      <Stack.Screen name="prf" options={{ headerShown: false }} />
+      <Stack.Screen name="booked" options={{ headerShown: false }} />
+      <Stack.Screen name="pass" options={{ headerShown: false }} />
     </Stack>
   );
 };

@@ -1,48 +1,47 @@
-// components/Driver/HamburgerMenu.tsx
-
-import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
-import { useGetProfile } from "@/services/profile.service";
+// HamburgerMenu.tsx
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native"
+import Icon from "react-native-vector-icons/Ionicons"
+import { useGetProfile } from "@/services/profile.service"
 
 type HamburgerMenuProps = {
-  onNavigateHome: () => void;
-  onNavigateProfile: () => void;
-  onNavigateSettings: () => void;
-  onLogout: () => void;
-  onSwitchMode: () => void;
-  onClose: () => void;
-};
+  onNavigateHome: () => void
+  onNavigateProfile: () => void
+  onNavigateSettings: () => void
+  onNavigatePassengers: () => void
+  onLogout: () => void
+  onSwitchMode: () => void
+  onClose: () => void
+  isVisible?: boolean
+}
 
 const HamburgerMenu = ({
   onNavigateHome,
   onNavigateProfile,
   onNavigateSettings,
+  onNavigatePassengers,
   onLogout,
   onSwitchMode,
   onClose,
+  isVisible = true,
 }: HamburgerMenuProps) => {
-  const { data: profileData } = useGetProfile();
+  const { data: profileData } = useGetProfile()
+
+  if (!isVisible) return null
 
   return (
     <View style={styles.menuContainer}>
       <View style={styles.menuHeader}>
         <View style={styles.profileContainer}>
-          {profileData?.profilePic ? (
-            <Image
-              source={{ uri: profileData.profilePic }}
-              style={styles.profileIcon}
-            />
+          {profileData?.firstName ? (
+            <View style={styles.profileIcon}>
+              <Text style={styles.profileInitials}>{profileData?.firstName?.[0]?.toUpperCase() || "U"}</Text>
+            </View>
           ) : (
             <View style={styles.profileIcon}>
-              <Text style={styles.profileInitials}>
-                {profileData?.firstName?.[0]?.toUpperCase() || "U"}
-              </Text>
+              <Text style={styles.profileInitials}>{profileData?.firstName?.[0]?.toUpperCase() || "U"}</Text>
             </View>
           )}
-          <Text style={styles.profileText}>
-            {profileData?.firstName || "User"}
-          </Text>
+          <Text style={styles.profileText}>{profileData?.firstName || "User"}</Text>
         </View>
         <TouchableOpacity onPress={onClose}>
           <Icon name="close" size={24} color="white" />
@@ -58,6 +57,9 @@ const HamburgerMenu = ({
       <TouchableOpacity onPress={onNavigateSettings} style={styles.menuItem}>
         <Text style={styles.menuText}>Settings</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={onNavigatePassengers} style={styles.menuItem}>
+        <Text style={styles.menuText}>Passengers</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={onLogout} style={styles.menuItem}>
         <Text style={styles.menuText}>Logout</Text>
       </TouchableOpacity>
@@ -65,8 +67,8 @@ const HamburgerMenu = ({
         <Text style={styles.passengerButtonText}>Switch to Passenger Mode</Text>
       </TouchableOpacity>
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   menuContainer: {
@@ -131,6 +133,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
   },
-});
+})
 
-export default HamburgerMenu;
+export default HamburgerMenu
